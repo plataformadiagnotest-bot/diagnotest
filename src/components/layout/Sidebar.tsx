@@ -1,0 +1,152 @@
+"use client";
+
+import Link from "next/link";
+import Image from "next/image";
+import { usePathname, useRouter } from "next/navigation";
+import { cn } from "@/lib/utils/format";
+import { createClient } from "@/lib/supabase/client";
+import type { Profile } from "@/types";
+import { initials } from "@/lib/utils/format";
+
+interface NavItem {
+  href: string;
+  label: string;
+  icon: string;
+  badge?: number;
+  badgeClass?: string;
+}
+
+function getNavItems(rol: string): NavItem[] {
+  switch (rol) {
+    case "personal_logistica":
+      return [
+        { href: "/retiros/nuevo", label: "Nuevo retiro", icon: "ti-circle-plus" },
+        { href: "/retiros", label: "Mis retiros", icon: "ti-list" },
+        { href: "/pedidos", label: "Pedidos asignados", icon: "ti-map-pin" },
+        { href: "/gastos", label: "Gastos y retiros", icon: "ti-receipt" },
+      ];
+    case "jefe_logistica":
+      return [
+        { href: "/pedidos", label: "Pedidos de retiro", icon: "ti-map-pin", badge: 5, badgeClass: "blue" },
+        { href: "/retiros", label: "Todos los retiros", icon: "ti-table" },
+        { href: "/retiros/por-personal", label: "Por personal", icon: "ti-user" },
+        { href: "/retiros/duplicados", label: "Duplicados", icon: "ti-copy", badge: 4, badgeClass: "amber" },
+        { href: "/gastos/autorizar", label: "Gastos a autorizar", icon: "ti-cash", badge: 8, badgeClass: "purple" },
+      ];
+    case "preanalitica":
+      return [
+        { href: "/preanalitica", label: "Bandeja", icon: "ti-inbox", badge: 12 },
+        { href: "/preanalitica/controlados", label: "Controlados", icon: "ti-check" },
+        { href: "/preanalitica/observados", label: "Observados", icon: "ti-alert-circle", badge: 3 },
+      ];
+    case "cobranzas":
+      return [
+        { href: "/cobranzas", label: "Pendientes", icon: "ti-inbox", badge: 8 },
+        { href: "/cobranzas/validados", label: "Validados", icon: "ti-circle-check" },
+        { href: "/cobranzas/diferencias", label: "Diferencias", icon: "ti-alert-triangle", badge: 2 },
+      ];
+    case "dueno":
+      return [
+        { href: "/dashboard", label: "Dashboard", icon: "ti-chart-bar" },
+        { href: "/retiros", label: "Todos los retiros", icon: "ti-table" },
+        { href: "/gastos/autorizar", label: "Gastos", icon: "ti-cash" },
+      ];
+    case "super_admin":
+      return [
+        { href: "/dashboard", label: "Dashboard", icon: "ti-chart-bar" },
+        { href: "/pedidos", label: "Pedidos de retiro", icon: "ti-map-pin", badge: 5, badgeClass: "blue" },
+        { href: "/retiros", label: "Todos los retiros", icon: "ti-table" },
+        { href: "/admin/personal", label: "Personal", icon: "ti-users" },
+        { href: "/admin/veterinarias", label: "Veterinarias", icon: "ti-building-hospital" },
+        { href: "/admin/zonas", label: "Zonas", icon: "ti-map" },
+        { href: "/gastos/autorizar", label: "Gastos", icon: "ti-cash", badge: 8, badgeClass: "purple" },
+        { href: "/admin/auditoria", label: "Auditoría", icon: "ti-history" },
+        { href: "/admin/config", label: "Configuración", icon: "ti-settings" },
+      ];
+    default:
+      return [];
+  }
+}
+
+const badgeStyles: Record<string, string> = {
+  default: "bg-red-500 text-white",
+  blue: "bg-blue-500 text-white",
+  amber: "bg-amber text-amber-text",
+  purple: "bg-purple-500 text-white",
+};
+
+interface Props {
+  profile: Profile;
+}
+
+export function Sidebar({ profile }: Props) {
+  const pathname = usePathname();
+  const router = useRouter();
+  const navItems = getNavItems(profile.rol);
+
+  async function handleLogout() {
+    const supabase = createClient();
+    await supabase.auth.signOut();
+    router.push("/login");
+  }
+
+  return (
+    <aside className="w-56 bg-g800 flex flex-col shrink-0 z-20" style={{ boxShadow: "2px 0 20px rgba(0,0,0,.15)" }}>
+      {/* Logo */}
+      <div className="px-4 py-3 border-b border-white/10 flex items-center justify-center">
+        <div className="bg-white rounded-xl px-3 py-2 shadow-md">
+          <Image src="/logo.png" alt="Diagnotest" width={148} height={48} className="object-contain" priority />
+        </div>
+      </div>
+
+      {/* Nav */}
+      <nav className="flex-1 overflow-y-auto py-2 scrollbar-hide">
+        <div className="px-4 py-3 text-[9px] uppercase tracking-widest text-white/30 font-semibold">
+          Panel
+        </div>
+        {navItems.map((item) => {
+          const active = pathname === item.href || pathname.startsWith(item.href + "/");
+          const bc = badgeStyles[item.badgeClass ?? "default"];
+          return (
+            <Link
+              key={item.href}
+              href={item.href}
+              className={cn(
+                "flex items-center gap-2.5 px-4 py-[9px] text-[13px] border-l-[3px] transition-all",
+                active
+                  ? "bg-white/13 text-white border-l-amber font-medium"
+                  : "text-white/65 border-l-transparent hover:bg-white/7 hover:text-white/90"
+              )}
+            >
+              <i className={cn("ti text-[17px] shrink-0", item.icon)} />
+              {item.label}
+              {item.badge ? (
+                <span className={cn("ml-auto text-[9px] font-bold rounded-full px-1.5 py-0.5 leading-tight", bc)}>
+                  {item.badge}
+                </span>
+              ) : null}
+            </Link>
+          );
+        })}
+      </nav>
+
+      {/* User */}
+      <div className="px-3.5 py-3 border-t border-white/10 flex items-center gap-2.5">
+        <div className="w-8 h-8 rounded-full bg-g500 flex items-center justify-center text-[11px] font-bold text-white shrink-0 border-2 border-white/20">
+          {initials(profile.nombre)}
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="text-[12px] font-medium text-white truncate">{profile.nombre}</div>
+          <div className="text-[10px] text-white/40 mt-0.5 truncate">{profile.rol.replace("_", " ")}</div>
+        </div>
+        <button
+          onClick={handleLogout}
+          className="text-white/40 hover:text-white/80 transition-colors"
+          title="Cerrar sesión"
+        >
+          <i className="ti ti-logout text-[16px]" />
+        </button>
+      </div>
+    </aside>
+  );
+}
