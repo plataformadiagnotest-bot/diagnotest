@@ -11,7 +11,7 @@ import { initials } from "@/lib/utils/format";
 import type { MetodoPago } from "@/types";
 import type { PedidoMobile } from "@/app/(dashboard)/inicio/page";
 
-interface VetOption { id: string; codigo: string; nombre: string }
+interface VetOption { id: string; codigo: string; nombre: string; telefono: string | null; direccion: string | null }
 
 interface Props {
   nombre: string;
@@ -189,6 +189,8 @@ export function MobileHome({ nombre, zonaNombre, personalId, profileId, veterina
     router.push("/login");
   }
 
+  const vetSel = vetId ? veterinarias.find((v) => v.id === vetId) ?? null : null;
+
   const inputCls = "w-full px-3.5 py-3 border-2 border-gy200 rounded-[10px] text-[14px] bg-gy50 focus:outline-none focus:border-g500 focus:bg-white transition-colors";
   const bigCls = "text-center text-[22px] font-bold";
 
@@ -266,6 +268,24 @@ export function MobileHome({ nombre, zonaNombre, personalId, profileId, veterina
               <datalist id="mob-vets">
                 {veterinarias.map((v) => <option key={v.id} value={v.nombre}>{v.codigo}</option>)}
               </datalist>
+              {vetSel && (vetSel.telefono || vetSel.direccion) && (
+                <div className="mt-2 flex flex-col gap-1.5 bg-g50 border border-g200 rounded-[10px] px-3 py-2.5">
+                  {vetSel.telefono && (
+                    <a href={`tel:${vetSel.telefono.replace(/\s+/g, "")}`}
+                      className="flex items-center gap-2 text-[13px] font-semibold text-g700">
+                      <i className="ti ti-phone text-[15px]" />
+                      <span className="flex-1">{vetSel.telefono}</span>
+                      <span className="text-[10px] font-medium text-g600 bg-white border border-g300 rounded-full px-2 py-0.5">Llamar</span>
+                    </a>
+                  )}
+                  {vetSel.direccion && (
+                    <div className="flex items-start gap-2 text-[12px] text-gy600">
+                      <i className="ti ti-map-pin text-[14px] mt-0.5 shrink-0" />
+                      <span>{vetSel.direccion}</span>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>

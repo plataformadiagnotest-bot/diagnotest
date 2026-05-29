@@ -27,7 +27,7 @@ export default async function VeterinariasPage() {
             <table className="w-full border-collapse text-[12px]">
               <thead>
                 <tr className="bg-gy50">
-                  {["Código", "Nombre", "Dirección", "Teléfono", "Zona", "Estado", ""].map((h) => (
+                  {["Código", "Nombre", "Email", "Teléfono", "Dirección", "Localidad", "Zona", "Estado", ""].map((h) => (
                     <th key={h} className="px-3.5 py-2.5 text-left text-[10px] font-bold uppercase tracking-wide text-gy400 border-b border-gy200">{h}</th>
                   ))}
                 </tr>
@@ -37,8 +37,10 @@ export default async function VeterinariasPage() {
                   <tr key={v.id} className="hover:bg-gy50 border-b border-gy100 last:border-0">
                     <td className="px-3.5 py-2.5 font-mono text-g700">{v.codigo}</td>
                     <td className="px-3.5 py-2.5 font-medium text-gy900">{v.nombre}</td>
-                    <td className="px-3.5 py-2.5 text-gy600">{v.direccion ?? "—"}</td>
+                    <td className="px-3.5 py-2.5 text-gy600">{v.email ?? "—"}</td>
                     <td className="px-3.5 py-2.5 text-gy600">{v.telefono ?? "—"}</td>
+                    <td className="px-3.5 py-2.5 text-gy600">{v.direccion ?? "—"}</td>
+                    <td className="px-3.5 py-2.5 text-gy600">{v.localidad ?? "—"}</td>
                     <td className="px-3.5 py-2.5">{(v.zona as { nombre?: string } | null)?.nombre ?? "—"}</td>
                     <td className="px-3.5 py-2.5"><PillStatus variant={v.activa ? "ok" : "grey"} label={v.activa ? "Activa" : "Inactiva"} /></td>
                     <td className="px-3.5 py-2.5">
@@ -49,7 +51,7 @@ export default async function VeterinariasPage() {
                   </tr>
                 ))}
                 {!vets?.length && (
-                  <tr><td colSpan={7} className="py-10 text-center text-gy400">Sin veterinarias — importá desde Google Sheets</td></tr>
+                  <tr><td colSpan={9} className="py-10 text-center text-gy400">Sin veterinarias — importá desde Google Sheets</td></tr>
                 )}
               </tbody>
             </table>

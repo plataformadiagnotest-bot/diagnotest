@@ -81,9 +81,11 @@ export async function POST(req: Request) {
 
   const headers = rows[0].map(norm);
   const colCodigo = headers.findIndex((h) => ["codigo", "código", "cod", "code"].includes(h));
-  const colNombre = headers.findIndex((h) => ["nombre", "veterinaria", "nombre veterinaria", "razon social", "razón social"].includes(h));
+  const colNombre = headers.findIndex((h) => ["nombre", "veterinaria", "nombre veterinaria"].includes(h));
   const colDireccion = headers.findIndex((h) => ["direccion", "dirección", "domicilio"].includes(h));
   const colTelefono = headers.findIndex((h) => ["telefono", "teléfono", "tel", "celular", "contacto"].includes(h));
+  const colEmail = headers.findIndex((h) => ["email", "e-mail", "mail", "correo"].includes(h));
+  const colLocalidad = headers.findIndex((h) => ["localidad", "barrio", "partido"].includes(h));
   const colZona = headers.findIndex((h) => ["zona", "zona base", "zona_base"].includes(h));
 
   if (colCodigo === -1 || colNombre === -1) {
@@ -92,11 +94,39 @@ export async function POST(req: Request) {
 
   const admin = createAdminClient();
 
-  // Mapa de zonas por nombre normalizado
-  const { data: zonas } = await admin.from("zonas").select("id, nombre");
+  // Zonas: nombre→id, y mapa localidad→zonaId (lo arma el jefe de logística).
+  const { data: zonas } = await admin.from("zonas").select("id, nombre, localidades");
   const zonaByName = new Map((zonas ?? []).map((z) => [norm(z.nombre), z.id]));
+  const zonaByLocalidad = new Map<string, string>();
+  const barriosCABA: string[] = [];
+  for (const z of zonas ?? []) {
+    const esCABA = norm(z.nombre).startsWith("caba");
+    for (const loc of (z.localidades as string[] | null) ?? []) {
+      const key = norm(loc);
+      if (!key) continue;
+      if (!zonaByLocalidad.has(key)) zonaByLocalidad.set(key, z.id);
+      if (esCABA) barriosCABA.push(key);
+    }
+  }
+  // Barrios más largos primero, para evitar matches parciales (ej. "flores" dentro de "floresta").
+  barriosCABA.sort((a, b) => b.length - a.length);
+
+  // Deduce la zona a partir de la localidad. Si la localidad es "CABA" (genérica),
+  // intenta inferir el barrio desde la dirección (solo barrios de CABA).
+  function resolverZona(localidad: string, direccion: string): string | null {
+    const locN = norm(localidad);
+    if (locN && locN !== "caba" && zonaByLocalidad.has(locN)) return zonaByLocalidad.get(locN)!;
+    if (locN === "caba" && direccion) {
+      const d = " " + norm(direccion).replace(/[.,]/g, " ").replace(/\s+/g, " ") + " ";
+      for (const b of barriosCABA) {
+        if (d.includes(" " + b + " ")) return zonaByLocalidad.get(b)!;
+      }
+    }
+    return null;
+  }
 
   const results: ResultRow[] = [];
+  let conZona = 0;
 
   for (const r of rows.slice(1)) {
     const codigo = (r[colCodigo] ?? "").trim();
@@ -109,8 +139,10 @@ export async function POST(req: Request) {
 
     const direccion = colDireccion !== -1 ? (r[colDireccion] ?? "").trim() || null : null;
     const telefono = colTelefono !== -1 ? (r[colTelefono] ?? "").trim() || null : null;
+    const email = colEmail !== -1 ? (r[colEmail] ?? "").trim() || null : null;
+    const localidad = colLocalidad !== -1 ? (r[colLocalidad] ?? "").trim() || null : null;
 
-    // Zona: si no existe, se crea automáticamente (el Sheet manda).
+    // Zona: si el Sheet trae columna 'zona' se usa; si no, se deduce de la localidad.
     let zonaId: string | null = null;
     const zonaNombre = colZona !== -1 ? (r[colZona] ?? "").trim() : "";
     if (zonaNombre) {
@@ -121,11 +153,14 @@ export async function POST(req: Request) {
         const { data: nz } = await admin.from("zonas").insert({ nombre: zonaNombre, activa: true }).select("id").single();
         if (nz) { zonaId = nz.id; zonaByName.set(key, nz.id); }
       }
+    } else {
+      zonaId = resolverZona(localidad ?? "", direccion ?? "");
     }
+    if (zonaId) conZona++;
 
     // ¿Ya existe por código? → actualizar; si no, crear.
     const { data: existing } = await admin.from("veterinarias").select("id").eq("codigo", codigo).maybeSingle();
-    const payload = { codigo, nombre, direccion, telefono, zona_id: zonaId, activa: true };
+    const payload = { codigo, nombre, direccion, telefono, email, localidad, zona_id: zonaId, activa: true };
 
     if (existing) {
       const { error } = await admin.from("veterinarias").update(payload).eq("id", existing.id);
@@ -142,5 +177,5 @@ export async function POST(req: Request) {
   const actualizados = results.filter((r) => r.estado === "actualizado").length;
   const errores = results.filter((r) => r.estado === "error").length;
 
-  return NextResponse.json({ ok: true, resumen: { creados, actualizados, errores, total: results.length }, results });
+  return NextResponse.json({ ok: true, resumen: { creados, actualizados, errores, total: results.length, conZona }, results });
 }

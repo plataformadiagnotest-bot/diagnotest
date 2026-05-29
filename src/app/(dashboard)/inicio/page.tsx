@@ -27,7 +27,7 @@ export default async function InicioPage() {
 
   const { data: vets } = await supabase
     .from("veterinarias")
-    .select("id, codigo, nombre")
+    .select("id, codigo, nombre, telefono, direccion")
     .eq("activa", true)
     .order("nombre");
 
