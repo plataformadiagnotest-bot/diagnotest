@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { Topbar } from "@/components/layout/Topbar";
 import { PillStatus } from "@/components/ui/PillStatus";
+import { ResolverButton } from "@/components/preanalitica/ResolverButton";
 
 export default async function PreanaliticaObservadosPage() {
   const supabase = await createClient();
@@ -36,9 +37,7 @@ export default async function PreanaliticaObservadosPage() {
                       <td className="px-3.5 py-2.5"><PillStatus variant={c.estado === "rechazado" ? "observado" : "observado"} label={c.estado} /></td>
                       <td className="px-3.5 py-2.5 text-gy600">{c.detalle ?? "—"}</td>
                       <td className="px-3.5 py-2.5">
-                        <button className="flex items-center gap-1 px-2.5 py-1 text-[11px] bg-g50 text-g700 border border-g200 rounded-[6px]">
-                          <i className="ti ti-check text-[13px]" /> Resolver
-                        </button>
+                        <ResolverButton controlId={c.id} />
                       </td>
                     </tr>
                   );

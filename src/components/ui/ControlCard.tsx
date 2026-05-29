@@ -16,6 +16,26 @@ interface Props {
   tipo: "pre" | "cob";
 }
 
+// Etiquetas que preanalítica puede marcar al controlar una muestra.
+const ETIQUETAS_PRE = [
+  "Tiene citología",
+  "Tiene AMF",
+  "Tiene cross match",
+  "Tiene VITEK",
+  "Tiene histopatología",
+  "Tiene progesterona",
+  "Urgente",
+  "Es del mismo paciente",
+  "Plata en bolsa",
+  "Es de otro código",
+  "DT de domicilio",
+  "Autovacuna",
+  "Hemocultivo",
+  "Anula",
+  "Sin orden",
+  "Muestra volcada",
+] as const;
+
 export function ControlCard({ control, tipo }: Props) {
   const router = useRouter();
   const retiro = control.retiro as AnyRecord;
@@ -26,9 +46,13 @@ export function ControlCard({ control, tipo }: Props) {
   const [ctrl2, setCtrl2] = useState(control.control_2 ?? "");
   const [estado, setEstado] = useState(control.estado ?? "pendiente");
   const [detalle, setDetalle] = useState(control.detalle ?? "");
+  const [etiquetas, setEtiquetas] = useState<string[]>(control.etiquetas ?? []);
   const [importeValidado, setImporteValidado] = useState(control.importe_validado ?? retiro?.importe_declarado ?? "");
   const [medioPago, setMedioPago] = useState(control.medio_pago ?? "efectivo");
   const [saving, setSaving] = useState(false);
+
+  const toggleEtiqueta = (e: string) =>
+    setEtiquetas((prev) => (prev.includes(e) ? prev.filter((x) => x !== e) : [...prev, e]));
 
   async function save(newEstado: string) {
     setSaving(true);
@@ -42,6 +66,7 @@ export function ControlCard({ control, tipo }: Props) {
     if (tipo === "pre") {
       updateData.control_1 = ctrl1;
       updateData.control_2 = ctrl2;
+      updateData.etiquetas = etiquetas;
     } else {
       updateData.importe_validado = parseFloat(String(importeValidado)) || 0;
       updateData.diferencia = (parseFloat(String(importeValidado)) || 0) - (Number(retiro?.importe_declarado) || 0);
@@ -156,6 +181,23 @@ export function ControlCard({ control, tipo }: Props) {
             </>
           )}
         </div>
+
+        {tipo === "pre" && (
+          <div className="mb-3">
+            <div className="text-[10px] font-semibold uppercase tracking-wide text-gy400 mb-1.5">Etiquetas</div>
+            <div className="flex flex-wrap gap-1.5">
+              {ETIQUETAS_PRE.map((e) => {
+                const on = etiquetas.includes(e);
+                return (
+                  <button key={e} type="button" onClick={() => toggleEtiqueta(e)}
+                    className={`px-2.5 py-1 rounded-full text-[11px] border transition-colors ${on ? "bg-g700 text-white border-g700" : "bg-gy50 text-gy600 border-gy200 hover:border-g400 hover:text-g700"}`}>
+                    {on && <i className="ti ti-check text-[11px] mr-1" />}{e}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         <div className="mb-3">
           <div className="text-[10px] font-semibold uppercase tracking-wide text-gy400 mb-1">Detalle / Observación</div>
