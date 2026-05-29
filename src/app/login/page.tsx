@@ -43,7 +43,8 @@ export default function LoginPage() {
       return;
     }
 
-    router.push("/dashboard");
+    // Personal de logística: experiencia 100% mobile
+    router.push(profile.rol === "personal_logistica" ? "/inicio" : "/dashboard");
   }
 
   return (

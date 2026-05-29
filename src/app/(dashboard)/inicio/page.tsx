@@ -1,0 +1,81 @@
+import { redirect } from "next/navigation";
+import { createClient } from "@/lib/supabase/server";
+import { MobileHome } from "@/components/mobile/MobileHome";
+
+export default async function InicioPage() {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) redirect("/login");
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("id, nombre, rol")
+    .eq("id", user.id)
+    .single();
+
+  // Solo personal de logística usa la vista mobile; el resto al dashboard
+  if (profile?.rol !== "personal_logistica") redirect("/dashboard");
+
+  const { data: personal } = await supabase
+    .from("personal")
+    .select("id, nombre, zona:zona_base_id(nombre)")
+    .eq("profile_id", user.id)
+    .single();
+
+  const personalId = personal?.id ?? "";
+  const zonaNombre = (personal?.zona as { nombre?: string } | null)?.nombre ?? "Sin zona";
+
+  const { data: vets } = await supabase
+    .from("veterinarias")
+    .select("id, codigo, nombre")
+    .eq("activa", true)
+    .order("nombre");
+
+  let pedidos: PedidoMobile[] = [];
+  if (personalId) {
+    const { data } = await supabase
+      .from("pedidos_retiro")
+      .select(`
+        id, estado, urgente, detalle, created_at,
+        veterinaria:veterinaria_id(id, nombre, codigo)
+      `)
+      .eq("personal_asignado_id", personalId)
+      .in("estado", ["asignado", "en_proceso"])
+      .order("created_at", { ascending: false });
+
+    pedidos = (data ?? []).map((p) => {
+      const vet = p.veterinaria as { id?: string; nombre?: string; codigo?: string } | null;
+      return {
+        id: p.id,
+        estado: p.estado,
+        urgente: p.urgente,
+        detalle: p.detalle,
+        created_at: p.created_at,
+        veterinaria_id: vet?.id ?? null,
+        veterinaria_nombre: vet?.nombre ?? "Veterinaria",
+        veterinaria_codigo: vet?.codigo ?? "",
+      };
+    });
+  }
+
+  return (
+    <MobileHome
+      nombre={profile?.nombre ?? personal?.nombre ?? "Personal"}
+      zonaNombre={zonaNombre}
+      personalId={personalId}
+      veterinarias={vets ?? []}
+      pedidos={pedidos}
+    />
+  );
+}
+
+export interface PedidoMobile {
+  id: string;
+  estado: string;
+  urgente: boolean;
+  detalle: string | null;
+  created_at: string;
+  veterinaria_id: string | null;
+  veterinaria_nombre: string;
+  veterinaria_codigo: string;
+}
