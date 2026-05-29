@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { Topbar } from "@/components/layout/Topbar";
+import { StatCard } from "@/components/ui/StatCard";
 import { PreanaliticaBandeja } from "@/components/preanalitica/PreanaliticaBandeja";
 
 export default async function PreanaliticaPage() {
@@ -18,10 +19,35 @@ export default async function PreanaliticaPage() {
     .eq("estado", "pendiente")
     .order("created_at", { ascending: true });
 
+  const today = new Date().toISOString().split("T")[0];
+
+  // Conteos reales para las tarjetas (head: true → solo trae el count).
+  const [{ count: controladosHoy }, { count: observados }] = await Promise.all([
+    supabase
+      .from("control_preanalitica")
+      .select("id", { count: "exact", head: true })
+      .eq("estado", "ok")
+      .gte("updated_at", today + "T00:00:00Z"),
+    supabase
+      .from("control_preanalitica")
+      .select("id", { count: "exact", head: true })
+      .in("estado", ["observado", "rechazado"]),
+  ]);
+
+  const pendientes = controles?.length ?? 0;
+  const urgentes = controles?.filter((c) => c.urgente || (c.retiro as { urgente?: boolean } | null)?.urgente).length ?? 0;
+
   return (
     <div>
       <Topbar title="Bandeja Preanalítica" />
-      <div className="p-6">
+      <div className="p-6 space-y-4">
+        <div className="grid grid-cols-4 gap-3.5">
+          <StatCard label="Pendientes de control" value={pendientes} accent="warn" />
+          <StatCard label="Urgentes" value={urgentes} accent="danger" />
+          <StatCard label="Controlados hoy" value={controladosHoy ?? 0} />
+          <StatCard label="Observados" value={observados ?? 0} accent="warn" />
+        </div>
+
         <PreanaliticaBandeja controles={controles ?? []} />
       </div>
     </div>
