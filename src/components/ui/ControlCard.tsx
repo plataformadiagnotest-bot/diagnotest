@@ -62,6 +62,13 @@ export function ControlCard({ control, tipo }: Props) {
   const pre = (Array.isArray(retiro?.control_preanalitica) ? retiro?.control_preanalitica[0] : retiro?.control_preanalitica) as AnyRecord | undefined;
   const preEtiquetas: string[] = pre?.etiquetas ?? [];
   const preDetalle: string = pre?.detalle ?? "";
+  const preEstado: string = pre?.estado ?? "pendiente";
+  const PRE_ESTADO_LABEL: Record<string, string> = {
+    pendiente: "Pendiente de control",
+    ok: "Controlado OK",
+    observado: "Observado",
+    rechazado: "Rechazado",
+  };
 
   // Código de veterinaria editable (preanalítica / cobranzas / super admin).
   const [codigo, setCodigo] = useState(retiro?.codigo_original ?? "");
@@ -216,22 +223,25 @@ export function ControlCard({ control, tipo }: Props) {
         {/* Controls (solo cobranzas) */}
         {tipo === "cob" && (
           <>
-            {(preEtiquetas.length > 0 || preDetalle) && (
-              <div className="mb-3 rounded-[8px] border border-gy200 bg-gy50 px-3 py-2.5">
-                <div className="flex items-center gap-1.5 mb-1.5">
-                  <i className="ti ti-clipboard-check text-[13px] text-g600" />
-                  <span className="text-[10px] font-semibold uppercase tracking-wide text-gy500">Aclaraciones de preanalítica</span>
-                </div>
-                {preEtiquetas.length > 0 && (
-                  <div className="flex flex-wrap gap-1.5 mb-1.5">
-                    {preEtiquetas.map((e) => (
-                      <span key={e} className="px-2 py-0.5 rounded-full text-[11px] bg-white text-g700 border border-g200">{e}</span>
-                    ))}
-                  </div>
-                )}
-                {preDetalle && <div className="text-[12px] text-gy700">{preDetalle}</div>}
+            <div className="mb-3 rounded-[8px] border border-gy200 bg-gy50 px-3 py-2.5">
+              <div className="flex items-center gap-1.5 mb-1.5">
+                <i className="ti ti-clipboard-check text-[13px] text-g600" />
+                <span className="text-[10px] font-semibold uppercase tracking-wide text-gy500">Aclaraciones de preanalítica</span>
+                <span className={`ml-auto text-[10px] font-medium px-2 py-0.5 rounded-full border ${preEstado === "ok" ? "bg-g50 text-g700 border-g200" : preEstado === "observado" ? "bg-amber-bg text-amber-text border-amber/40" : preEstado === "rechazado" ? "bg-red-50 text-red-700 border-red-200" : "bg-white text-gy500 border-gy200"}`}>
+                  {PRE_ESTADO_LABEL[preEstado] ?? preEstado}
+                </span>
               </div>
-            )}
+              {preEtiquetas.length > 0 && (
+                <div className="flex flex-wrap gap-1.5 mb-1.5">
+                  {preEtiquetas.map((e) => (
+                    <span key={e} className="px-2 py-0.5 rounded-full text-[11px] bg-white text-g700 border border-g200">{e}</span>
+                  ))}
+                </div>
+              )}
+              {preDetalle
+                ? <div className="text-[12px] text-gy700">{preDetalle}</div>
+                : preEtiquetas.length === 0 && <div className="text-[12px] text-gy400 italic">Sin etiquetas ni comentarios de preanalítica</div>}
+            </div>
 
             <div className="grid grid-cols-3 gap-2.5 mb-3">
               <div>
