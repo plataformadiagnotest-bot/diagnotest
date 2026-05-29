@@ -42,6 +42,8 @@ export function ControlCard({ control, tipo }: Props) {
   const personal = retiro?.personal as AnyRecord;
   const isUrgente = control.urgente || retiro?.urgente;
 
+  const [ctrl1, setCtrl1] = useState(control.control_1 ?? "");
+  const [ctrl2, setCtrl2] = useState(control.control_2 ?? "");
   const [estado, setEstado] = useState(control.estado ?? "pendiente");
   const [detalle, setDetalle] = useState(control.detalle ?? "");
   const [etiquetas, setEtiquetas] = useState<string[]>(control.etiquetas ?? []);
@@ -49,8 +51,35 @@ export function ControlCard({ control, tipo }: Props) {
   const [medioPago, setMedioPago] = useState(control.medio_pago ?? "efectivo");
   const [saving, setSaving] = useState(false);
 
+  // Código de veterinaria editable (preanalítica / cobranzas / super admin).
+  const [codigo, setCodigo] = useState(retiro?.codigo_original ?? "");
+  const [vetNombre, setVetNombre] = useState(retiro?.veterinaria_texto_original ?? "");
+  const [match, setMatch] = useState<null | boolean>(null);
+  const [savingCodigo, setSavingCodigo] = useState(false);
+
   const toggleEtiqueta = (e: string) =>
     setEtiquetas((prev) => (prev.includes(e) ? prev.filter((x) => x !== e) : [...prev, e]));
+
+  async function guardarCodigo() {
+    const nuevo = codigo.trim();
+    if (nuevo === (retiro?.codigo_original ?? "").trim()) return; // sin cambios
+    setSavingCodigo(true);
+    const res = await fetch("/api/retiros/codigo", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ retiroId: retiro?.id, codigo: nuevo }),
+    });
+    const json = await res.json();
+    setSavingCodigo(false);
+    if (!res.ok) { toast("error", json.error ?? "No se pudo guardar el código"); return; }
+    setMatch(json.matched);
+    if (json.matched && json.veterinaria) {
+      setVetNombre(json.veterinaria.nombre);
+      toast("success", `Código vinculado a ${json.veterinaria.nombre}`);
+    } else {
+      toast("success", "Código guardado (sin coincidencia en el maestro)");
+    }
+  }
 
   async function save(newEstado: string) {
     setSaving(true);
@@ -62,6 +91,8 @@ export function ControlCard({ control, tipo }: Props) {
     };
 
     if (tipo === "pre") {
+      updateData.control_1 = ctrl1;
+      updateData.control_2 = ctrl2;
       updateData.etiquetas = etiquetas;
     } else {
       updateData.importe_validado = parseFloat(String(importeValidado)) || 0;
@@ -80,9 +111,28 @@ export function ControlCard({ control, tipo }: Props) {
     <div className={`bg-white rounded-[14px] border border-gy200 shadow-sm overflow-hidden hover:shadow-md transition-shadow ${isUrgente ? "border-l-4 border-l-red-500" : ""}`}>
       {/* Header */}
       <div className="px-4 py-3 bg-gy50 border-b border-gy100 flex items-center gap-2.5 flex-wrap">
-        <span className="font-mono text-[12px] font-medium text-gy600">{retiro?.id?.slice(0, 8).toUpperCase()}</span>
-        <span className="text-[14px] font-semibold text-gy900 flex-1">{retiro?.veterinaria_texto_original ?? "—"}</span>
-        {retiro?.codigo_original && <span className="font-mono text-[11px] text-gy400">{retiro.codigo_original}</span>}
+        <div className="flex items-center gap-1.5">
+          <span className="text-[9px] uppercase tracking-wide text-gy400 font-semibold">Código</span>
+          <input
+            value={codigo}
+            onChange={(e) => setCodigo(e.target.value)}
+            onBlur={guardarCodigo}
+            disabled={savingCodigo}
+            placeholder="—"
+            className="w-24 px-2 py-1 font-mono text-[12px] font-medium text-gy700 bg-white border border-gy200 rounded-[6px] focus:outline-none focus:border-g500 disabled:opacity-50"
+          />
+        </div>
+        <span className="text-[14px] font-semibold text-gy900 flex-1">{vetNombre || "—"}</span>
+        {match === true && (
+          <span className="inline-flex items-center gap-1 text-[10px] font-medium text-g700 bg-g50 border border-g200 rounded-full px-2 py-0.5">
+            <i className="ti ti-check" /> Vinculada
+          </span>
+        )}
+        {match === false && (
+          <span className="inline-flex items-center gap-1 text-[10px] font-medium text-amber-text bg-amber-bg border border-amber/40 rounded-full px-2 py-0.5">
+            <i className="ti ti-alert-triangle" /> Sin coincidencia
+          </span>
+        )}
         <span className="text-[11px] text-gy400">{personal?.nombre ?? "—"} · {retiro?.fecha_operativa ? formatDateTime(retiro.timestamp_carga) : ""}</span>
         {retiro?.comprobante_url && (
           <a href={retiro.comprobante_url} target="_blank" rel="noopener noreferrer"
@@ -111,6 +161,42 @@ export function ControlCard({ control, tipo }: Props) {
             </div>
           )}
         </div>
+
+        {/* Controls preanalítica: control 1 / control 2 / estado */}
+        {tipo === "pre" && (
+          <div className="grid grid-cols-3 gap-2.5 mb-3">
+            <div>
+              <div className="text-[10px] font-semibold uppercase tracking-wide text-gy400 mb-1">Control 1</div>
+              <select className="w-full px-2.5 py-1.5 border-2 border-gy200 rounded-[6px] text-[12px] bg-gy50 focus:outline-none focus:border-g500"
+                value={ctrl1} onChange={(e) => setCtrl1(e.target.value)}>
+                <option value="">— Seleccionar —</option>
+                <option value="ok">OK</option>
+                <option value="observar">Observar</option>
+                <option value="rechazar">Rechazar</option>
+              </select>
+            </div>
+            <div>
+              <div className="text-[10px] font-semibold uppercase tracking-wide text-gy400 mb-1">Control 2</div>
+              <select className="w-full px-2.5 py-1.5 border-2 border-gy200 rounded-[6px] text-[12px] bg-gy50 focus:outline-none focus:border-g500"
+                value={ctrl2} onChange={(e) => setCtrl2(e.target.value)}>
+                <option value="">— Seleccionar —</option>
+                <option value="ok">OK</option>
+                <option value="observar">Observar</option>
+                <option value="rechazar">Rechazar</option>
+              </select>
+            </div>
+            <div>
+              <div className="text-[10px] font-semibold uppercase tracking-wide text-gy400 mb-1">Estado</div>
+              <select className="w-full px-2.5 py-1.5 border-2 border-gy200 rounded-[6px] text-[12px] bg-gy50 focus:outline-none focus:border-g500"
+                value={estado} onChange={(e) => setEstado(e.target.value)}>
+                <option value="pendiente">Pendiente</option>
+                <option value="ok">Controlado OK</option>
+                <option value="observado">Observado</option>
+                <option value="rechazado">Rechazado</option>
+              </select>
+            </div>
+          </div>
+        )}
 
         {/* Controls (solo cobranzas) */}
         {tipo === "cob" && (
