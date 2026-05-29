@@ -1,7 +1,6 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { Sidebar } from "@/components/layout/Sidebar";
-import { OfflineBanner } from "@/components/offline/SyncIndicator";
+import { DashboardShell } from "@/components/layout/DashboardShell";
 import type { Profile } from "@/types";
 
 export default async function DashboardLayout({
@@ -33,15 +32,5 @@ export default async function DashboardLayout({
     );
   }
 
-  return (
-    <div className="flex h-screen overflow-hidden">
-      <Sidebar profile={profile as Profile} />
-      <div className="flex-1 flex flex-col overflow-hidden min-w-0">
-        <OfflineBanner />
-        <main className="flex-1 overflow-y-auto">
-          {children}
-        </main>
-      </div>
-    </div>
-  );
+  return <DashboardShell profile={profile as Profile}>{children}</DashboardShell>;
 }

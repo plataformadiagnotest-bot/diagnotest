@@ -77,9 +77,10 @@ const badgeStyles: Record<string, string> = {
 
 interface Props {
   profile: Profile;
+  onNavigate?: () => void;
 }
 
-export function Sidebar({ profile }: Props) {
+export function Sidebar({ profile, onNavigate }: Props) {
   const pathname = usePathname();
   const router = useRouter();
   const navItems = getNavItems(profile.rol);
@@ -111,6 +112,7 @@ export function Sidebar({ profile }: Props) {
             <Link
               key={item.href}
               href={item.href}
+              onClick={onNavigate}
               className={cn(
                 "flex items-center gap-2.5 px-4 py-[9px] text-[13px] border-l-[3px] transition-all",
                 active
