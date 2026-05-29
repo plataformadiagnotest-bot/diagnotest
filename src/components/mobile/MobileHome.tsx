@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useOffline } from "@/lib/hooks/useOffline";
@@ -42,6 +42,8 @@ export function MobileHome({ nombre, zonaNombre, personalId, veterinarias, pedid
   const [urgente, setUrgente] = useState(false);
   const [pedidoId, setPedidoId] = useState<string | null>(null);
   const [savingRetiro, setSavingRetiro] = useState(false);
+  const [fotoRetiro, setFotoRetiro] = useState<File | null>(null);
+  const fotoRetiroInput = useRef<HTMLInputElement>(null);
 
   // ── Gasto form ──────────────────────────────────────────────
   const [gTipo, setGTipo] = useState<"gasto" | "retiro_dinero">("gasto");
@@ -49,6 +51,21 @@ export function MobileHome({ nombre, zonaNombre, personalId, veterinarias, pedid
   const [gMonto, setGMonto] = useState("");
   const [gFecha, setGFecha] = useState(todayISO());
   const [savingGasto, setSavingGasto] = useState(false);
+  const [fotoGasto, setFotoGasto] = useState<File | null>(null);
+  const fotoGastoInput = useRef<HTMLInputElement>(null);
+
+  // Sube una foto al bucket "comprobantes" y devuelve la URL pública
+  async function uploadComprobante(file: File): Promise<string | null> {
+    const ext = (file.name.split(".").pop() || "jpg").toLowerCase();
+    const path = `${personalId || "anon"}/${crypto.randomUUID()}.${ext}`;
+    const { error } = await supabase.storage.from("comprobantes").upload(path, file, {
+      cacheControl: "3600",
+      upsert: false,
+      contentType: file.type || "image/jpeg",
+    });
+    if (error) { toast("error", "No se pudo subir la foto: " + error.message); return null; }
+    return supabase.storage.from("comprobantes").getPublicUrl(path).data.publicUrl;
+  }
 
   function matchVet(value: string) {
     setVetTexto(value);
@@ -70,7 +87,8 @@ export function MobileHome({ nombre, zonaNombre, personalId, veterinarias, pedid
   function resetRetiro() {
     setVetTexto(""); setVetId(null); setCodigo("");
     setMuestras(""); setImporte(""); setMetodoPago(""); setComentarios("");
-    setUrgente(false); setPedidoId(null);
+    setUrgente(false); setPedidoId(null); setFotoRetiro(null);
+    if (fotoRetiroInput.current) fotoRetiroInput.current.value = "";
   }
 
   async function guardarRetiro() {
@@ -80,6 +98,12 @@ export function MobileHome({ nombre, zonaNombre, personalId, veterinarias, pedid
     if (!importe.trim() || parseFloat(importe) < 0) { toast("error", "Ingresá el importe"); return; }
     if (!metodoPago) { toast("error", "Seleccioná el tipo de pago"); return; }
     setSavingRetiro(true);
+
+    let comprobanteUrl: string | null = null;
+    if (fotoRetiro && !isOffline) {
+      comprobanteUrl = await uploadComprobante(fotoRetiro);
+      if (!comprobanteUrl) { setSavingRetiro(false); return; }
+    }
 
     const id = crypto.randomUUID();
     const retiro = {
@@ -93,6 +117,7 @@ export function MobileHome({ nombre, zonaNombre, personalId, veterinarias, pedid
       cantidad_muestras: parseInt(muestras) || 0,
       importe_declarado: parseFloat(importe) || 0,
       metodo_pago: metodoPago as MetodoPago,
+      comprobante_url: comprobanteUrl,
       comentarios: comentarios || null,
       tipo: "veterinaria" as const,
       urgente,
@@ -108,7 +133,9 @@ export function MobileHome({ nombre, zonaNombre, personalId, veterinarias, pedid
     if (isOffline) {
       await saveRetiroOffline({ ...retiro, _offline: true });
       await addToSyncQueue({ id: crypto.randomUUID(), action: "create", table: "retiros", data: retiro, timestamp: Date.now() });
-      toast("warning", "Retiro guardado offline — se sincronizará al reconectarse");
+      toast("warning", fotoRetiro
+        ? "Retiro guardado offline — la foto deberá adjuntarse al reconectarse"
+        : "Retiro guardado offline — se sincronizará al reconectarse");
       resetRetiro();
       setSavingRetiro(false);
       return;
@@ -132,18 +159,26 @@ export function MobileHome({ nombre, zonaNombre, personalId, veterinarias, pedid
     if (!gDesc.trim()) { toast("error", "Indicá una descripción"); return; }
     setSavingGasto(true);
 
+    let comprobanteUrl: string | null = null;
+    if (fotoGasto) {
+      comprobanteUrl = await uploadComprobante(fotoGasto);
+      if (!comprobanteUrl) { setSavingGasto(false); return; }
+    }
+
     const { error } = await supabase.from("gastos").insert({
       personal_id: personalId,
       tipo: gTipo,
       descripcion: gDesc,
       monto: parseFloat(gMonto) || 0,
       fecha_operativa: gFecha,
+      comprobante_url: comprobanteUrl,
       estado: "pendiente",
     });
 
     if (error) { toast("error", "Error al guardar: " + error.message); setSavingGasto(false); return; }
     toast("success", "Gasto registrado correctamente ✓");
-    setGDesc(""); setGMonto("");
+    setGDesc(""); setGMonto(""); setFotoGasto(null);
+    if (fotoGastoInput.current) fotoGastoInput.current.value = "";
     setSavingGasto(false);
   }
 
@@ -252,11 +287,28 @@ export function MobileHome({ nombre, zonaNombre, personalId, veterinarias, pedid
               <label className="block text-[11px] font-semibold text-gy600 mb-1.5">Comentarios</label>
               <input className={inputCls} placeholder="Opcional..." value={comentarios} onChange={(e) => setComentarios(e.target.value)} />
             </div>
-            <button type="button" onClick={() => setUrgente((v) => !v)}
-              className={`w-full flex items-center justify-center gap-2 py-3 rounded-[10px] border-2 text-[13px] font-semibold transition-all ${urgente ? "border-red-400 bg-red-50 text-red-600" : "border-dashed border-gy300 text-gy500"}`}>
-              <i className="ti ti-alert-triangle text-[16px]" />
-              {urgente ? "Marcado como URGENTE" : "Marcar urgente"}
-            </button>
+            <div className="grid grid-cols-2 gap-2">
+              <input ref={fotoRetiroInput} type="file" accept="image/*" capture="environment" className="hidden"
+                onChange={(e) => setFotoRetiro(e.target.files?.[0] ?? null)} />
+              <button type="button" onClick={() => fotoRetiroInput.current?.click()}
+                className={`flex flex-col items-center justify-center gap-1 py-3 rounded-[10px] border-2 text-[12px] font-medium transition-all ${fotoRetiro ? "border-g500 bg-g50 text-g700" : "border-dashed border-gy300 text-gy500"}`}>
+                <i className="ti ti-camera text-[18px]" />
+                {fotoRetiro ? "Foto cargada ✓" : "Foto comprobante"}
+              </button>
+              <button type="button" onClick={() => setUrgente((v) => !v)}
+                className={`flex flex-col items-center justify-center gap-1 py-3 rounded-[10px] border-2 text-[12px] font-medium transition-all ${urgente ? "border-red-400 bg-red-50 text-red-600" : "border-dashed border-gy300 text-gy500"}`}>
+                <i className="ti ti-alert-triangle text-[18px]" />
+                {urgente ? "URGENTE" : "Marcar urgente"}
+              </button>
+            </div>
+            {fotoRetiro && (
+              <div className="flex items-center gap-2 text-[11px] text-g700 bg-g50 rounded-[8px] px-3 py-2">
+                <i className="ti ti-photo" />
+                <span className="truncate flex-1">{fotoRetiro.name}</span>
+                <button type="button" onClick={() => { setFotoRetiro(null); if (fotoRetiroInput.current) fotoRetiroInput.current.value = ""; }}
+                  className="text-gy400 hover:text-red-500"><i className="ti ti-x" /></button>
+              </div>
+            )}
             <button onClick={guardarRetiro} disabled={savingRetiro}
               className="w-full py-3.5 bg-g800 hover:bg-g700 text-white font-bold rounded-[12px] text-[15px] flex items-center justify-center gap-2 disabled:opacity-60 transition-colors">
               {savingRetiro ? <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <i className="ti ti-device-floppy text-[18px]" />}
@@ -326,6 +378,21 @@ export function MobileHome({ nombre, zonaNombre, personalId, veterinarias, pedid
                 <input type="date" className={inputCls} value={gFecha} onChange={(e) => setGFecha(e.target.value)} />
               </div>
             </div>
+            <input ref={fotoGastoInput} type="file" accept="image/*" capture="environment" className="hidden"
+              onChange={(e) => setFotoGasto(e.target.files?.[0] ?? null)} />
+            <button type="button" onClick={() => fotoGastoInput.current?.click()}
+              className={`w-full flex items-center justify-center gap-2 py-3 rounded-[10px] border-2 text-[13px] font-medium transition-all ${fotoGasto ? "border-purple-400 bg-purple-50 text-purple-700" : "border-dashed border-gy300 text-gy500"}`}>
+              <i className="ti ti-camera text-[16px]" />
+              {fotoGasto ? "Foto del ticket cargada ✓" : "Foto del ticket"}
+            </button>
+            {fotoGasto && (
+              <div className="flex items-center gap-2 text-[11px] text-purple-700 bg-purple-50 rounded-[8px] px-3 py-2">
+                <i className="ti ti-photo" />
+                <span className="truncate flex-1">{fotoGasto.name}</span>
+                <button type="button" onClick={() => { setFotoGasto(null); if (fotoGastoInput.current) fotoGastoInput.current.value = ""; }}
+                  className="text-gy400 hover:text-red-500"><i className="ti ti-x" /></button>
+              </div>
+            )}
             <button onClick={guardarGasto} disabled={savingGasto}
               className="w-full py-3.5 bg-purple-600 hover:bg-purple-700 text-white font-bold rounded-[12px] text-[15px] flex items-center justify-center gap-2 disabled:opacity-60 transition-colors">
               {savingGasto ? <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <i className="ti ti-device-floppy text-[18px]" />}

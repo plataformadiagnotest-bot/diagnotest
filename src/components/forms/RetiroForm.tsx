@@ -81,6 +81,7 @@ export function RetiroForm({ personalId, pedidoId, prefill, onSaved }: Props) {
       cantidad_muestras: parseInt(form.cantidad_muestras) || 0,
       importe_declarado: parseFloat(form.importe_declarado) || 0,
       metodo_pago: form.metodo_pago as MetodoPago,
+      comprobante_url: null,
       comentarios: form.comentarios || null,
       tipo: form.tipo,
       urgente: form.urgente,

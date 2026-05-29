@@ -9,8 +9,21 @@ const withPWAConfig = withPWA({
   dest: "public",
   register: true,
   skipWaiting: true,
+  cleanupOutdatedCaches: true,
+  reloadOnOnline: true,
   disable: process.env.NODE_ENV === "development",
   runtimeCaching: [
+    {
+      // Las navegaciones (HTML) siempre intentan la red primero;
+      // así un deploy nuevo no queda atrapado en una versión vieja.
+      urlPattern: ({ request }) => request.mode === "navigate",
+      handler: "NetworkFirst",
+      options: {
+        cacheName: "pages-cache",
+        networkTimeoutSeconds: 10,
+        expiration: { maxEntries: 50, maxAgeSeconds: 86400 },
+      },
+    },
     {
       urlPattern: /^https:\/\/.*\.supabase\.co\/.*/i,
       handler: "NetworkFirst",

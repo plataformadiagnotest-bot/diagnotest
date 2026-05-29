@@ -99,6 +99,7 @@ export interface Retiro {
   cantidad_muestras: number;
   importe_declarado: number;
   metodo_pago: MetodoPago;
+  comprobante_url: string | null;
   comentarios: string | null;
   tipo: TipoRetiro;
   urgente: boolean;
