@@ -17,13 +17,14 @@ interface Props {
   nombre: string;
   zonaNombre: string;
   personalId: string;
+  profileId: string;
   veterinarias: VetOption[];
   pedidos: PedidoMobile[];
 }
 
 type Tab = "retiro" | "pedidos" | "gastos";
 
-export function MobileHome({ nombre, zonaNombre, personalId, veterinarias, pedidos }: Props) {
+export function MobileHome({ nombre, zonaNombre, personalId, profileId, veterinarias, pedidos }: Props) {
   const router = useRouter();
   const { isOffline } = useOffline();
   const supabase = createClient();
@@ -128,7 +129,7 @@ export function MobileHome({ nombre, zonaNombre, personalId, veterinarias, pedid
       sincronizado: false,
       pedido_id: pedidoId,
       anulado: false,
-      created_by: personalId,
+      created_by: profileId,
     };
 
     if (isOffline) {

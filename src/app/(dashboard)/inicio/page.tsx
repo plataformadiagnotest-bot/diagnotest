@@ -63,6 +63,7 @@ export default async function InicioPage() {
       nombre={profile?.nombre ?? personal?.nombre ?? "Personal"}
       zonaNombre={zonaNombre}
       personalId={personalId}
+      profileId={user.id}
       veterinarias={vets ?? []}
       pedidos={pedidos}
     />

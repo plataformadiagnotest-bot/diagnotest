@@ -32,6 +32,7 @@ export function RetiroForm({ personalId, pedidoId, prefill, onSaved }: Props) {
 
   const [veterinarias, setVeterinarias] = useState<VetOption[]>([]);
   const [personal, setPersonal] = useState<PersonalOption[]>([]);
+  const [userId, setUserId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
   const [form, setForm] = useState({
@@ -56,6 +57,8 @@ export function RetiroForm({ personalId, pedidoId, prefill, onSaved }: Props) {
       ]);
       setVeterinarias(vets ?? []);
       setPersonal(pers ?? []);
+      const { data: { user } } = await supabase.auth.getUser();
+      setUserId(user?.id ?? null);
     }
     load();
   }, []);
@@ -66,6 +69,7 @@ export function RetiroForm({ personalId, pedidoId, prefill, onSaved }: Props) {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (!userId) { toast("error", "No se pudo identificar tu sesión, recargá la página"); return; }
     const hayPago = parseFloat(form.importe_declarado) > 0;
     if (hayPago && !form.metodo_pago) { toast("error", "Seleccioná el tipo de pago"); return; }
     setLoading(true);
@@ -92,7 +96,7 @@ export function RetiroForm({ personalId, pedidoId, prefill, onSaved }: Props) {
       sincronizado: false,
       pedido_id: pedidoId ?? null,
       anulado: false,
-      created_by: form.personal_id,
+      created_by: userId,
     };
 
     if (isOffline) {
