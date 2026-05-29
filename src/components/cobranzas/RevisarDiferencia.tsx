@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { createClient } from "@/lib/supabase/client";
 import { toast } from "@/components/ui/ToastNotification";
 import { fmtMoneySign } from "@/lib/utils/format";
 
@@ -28,18 +27,19 @@ export function RevisarDiferencia({ controlId, declarado, validado, detalle, vet
 
   async function resolver(nuevoEstado: "adjudicado" | "no_corresponde" | "diferencia") {
     setSaving(true);
-    const supabase = createClient();
-    const { error } = await supabase
-      .from("control_cobranzas")
-      .update({
+    const res = await fetch("/api/cobranzas/validar", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        controlId,
         estado: nuevoEstado,
-        importe_validado: valNum,
-        diferencia: diff,
+        importeValidado: valNum,
         detalle: obs || null,
-      })
-      .eq("id", controlId);
+      }),
+    });
+    const json = await res.json();
     setSaving(false);
-    if (error) { toast("error", "No se pudo guardar"); return; }
+    if (!res.ok) { toast("error", json.error ?? "No se pudo guardar"); return; }
     toast("success",
       nuevoEstado === "adjudicado" ? "Diferencia adjudicada ✓"
         : nuevoEstado === "no_corresponde" ? "Marcada como no corresponde"

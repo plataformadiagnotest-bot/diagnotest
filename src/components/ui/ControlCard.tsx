@@ -102,25 +102,37 @@ export function ControlCard({ control, tipo }: Props) {
 
   async function save(newEstado: string) {
     setSaving(true);
-    const supabase = createClient();
-    const table = tipo === "pre" ? "control_preanalitica" : "control_cobranzas";
-    const updateData: Record<string, unknown> = {
-      estado: newEstado,
-      detalle: detalle || null,
-    };
 
-    if (tipo === "pre") {
-      updateData.control_1 = ctrl1;
-      updateData.control_2 = ctrl2;
-      updateData.etiquetas = etiquetas;
-    } else {
-      updateData.importe_validado = parseFloat(String(importeValidado)) || 0;
-      updateData.diferencia = (parseFloat(String(importeValidado)) || 0) - (Number(retiro?.importe_declarado) || 0);
+    if (tipo === "cob") {
+      // Cobranzas pasa por la API: setea responsable y registra en auditoría.
+      const res = await fetch("/api/cobranzas/validar", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          controlId: control.id,
+          estado: newEstado,
+          importeValidado: parseFloat(String(importeValidado)) || 0,
+          detalle: detalle || null,
+        }),
+      });
+      const json = await res.json();
+      setSaving(false);
+      if (!res.ok) { toast("error", json.error ?? "Error al guardar"); return; }
+      toast("success", "Cobranza guardada ✓");
+      router.refresh();
+      return;
     }
 
-    const { error } = await supabase.from(table).update(updateData).eq("id", control.id);
+    const supabase = createClient();
+    const { error } = await supabase.from("control_preanalitica").update({
+      estado: newEstado,
+      detalle: detalle || null,
+      control_1: ctrl1,
+      control_2: ctrl2,
+      etiquetas,
+    }).eq("id", control.id);
     if (error) { toast("error", "Error al guardar"); setSaving(false); return; }
-    toast("success", tipo === "pre" ? "Control guardado ✓" : "Cobranza guardada ✓");
+    toast("success", "Control guardado ✓");
     router.refresh();
     setSaving(false);
   }
