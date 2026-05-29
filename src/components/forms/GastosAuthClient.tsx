@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "@/components/ui/ToastNotification";
@@ -25,6 +25,36 @@ export function GastosAuthClient({ gastos }: { gastos: Gasto[] }) {
   const [checked, setChecked] = useState<Record<string, boolean>>({});
   const [obsInputs, setObsInputs] = useState<Record<string, string>>({});
   const [obsOpen, setObsOpen] = useState<Record<string, boolean>>({});
+  const [live, setLive] = useState(false);
+  const refreshTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Realtime: refresca el panel cuando un cadete carga / cambia un gasto
+  useEffect(() => {
+    const scheduleRefresh = () => {
+      if (refreshTimer.current) clearTimeout(refreshTimer.current);
+      refreshTimer.current = setTimeout(() => router.refresh(), 400);
+    };
+
+    const channel = supabase
+      .channel("gastos-autorizacion")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "gastos" },
+        (payload) => {
+          if (payload.eventType === "INSERT") {
+            toast("info", "Nuevo gasto cargado por un cadete");
+          }
+          scheduleRefresh();
+        }
+      )
+      .subscribe((status) => setLive(status === "SUBSCRIBED"));
+
+    return () => {
+      if (refreshTimer.current) clearTimeout(refreshTimer.current);
+      supabase.removeChannel(channel);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   function toggleCheck(id: string) {
     setChecked((c) => ({ ...c, [id]: !c[id] }));
@@ -60,10 +90,14 @@ export function GastosAuthClient({ gastos }: { gastos: Gasto[] }) {
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
-        <div className="flex gap-1.5">
+        <div className="flex items-center gap-1.5">
           {["Todos", "Gastos", "Retiros", "Por personal"].map((f, i) => (
             <button key={f} className={`px-3 py-1.5 rounded-full border text-[11px] transition-all ${i === 0 ? "bg-g800 text-white border-g800" : "bg-white text-gy600 border-gy200 hover:border-g400 hover:text-g700"}`}>{f}</button>
           ))}
+          <span className={`ml-1 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-medium border transition-colors ${live ? "bg-g50 text-g700 border-g200" : "bg-gy50 text-gy400 border-gy200"}`} title={live ? "Actualización en tiempo real activa" : "Conectando…"}>
+            <span className={`w-1.5 h-1.5 rounded-full ${live ? "bg-g500 animate-pulse" : "bg-gy300"}`} />
+            {live ? "En vivo" : "Conectando…"}
+          </span>
         </div>
         <button onClick={autorizarSeleccionados}
           className="flex items-center gap-1.5 px-3.5 py-2 bg-g50 text-g700 border border-g200 text-[12px] font-medium rounded-[6px] hover:bg-g100">
