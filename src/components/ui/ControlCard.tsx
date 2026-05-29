@@ -36,6 +36,14 @@ const ETIQUETAS_PRE = [
   "Muestra volcada",
 ] as const;
 
+// Medio de pago lo define logística al cargar el retiro; cobranzas solo lo ve.
+const METODO_PAGO_LABEL: Record<string, string> = {
+  efectivo: "Efectivo",
+  transferencia: "Transferencia",
+  mercado_pago: "Mercado Pago",
+  mercadopago: "Mercado Pago",
+};
+
 export function ControlCard({ control, tipo }: Props) {
   const router = useRouter();
   const retiro = control.retiro as AnyRecord;
@@ -48,8 +56,12 @@ export function ControlCard({ control, tipo }: Props) {
   const [detalle, setDetalle] = useState(control.detalle ?? "");
   const [etiquetas, setEtiquetas] = useState<string[]>(control.etiquetas ?? []);
   const [importeValidado, setImporteValidado] = useState(control.importe_validado ?? retiro?.importe_declarado ?? "");
-  const [medioPago, setMedioPago] = useState(control.medio_pago ?? "efectivo");
   const [saving, setSaving] = useState(false);
+
+  // Datos de preanalítica (control 1:1 vía retiro) — solo lectura para cobranzas.
+  const pre = (Array.isArray(retiro?.control_preanalitica) ? retiro?.control_preanalitica[0] : retiro?.control_preanalitica) as AnyRecord | undefined;
+  const preEtiquetas: string[] = pre?.etiquetas ?? [];
+  const preDetalle: string = pre?.detalle ?? "";
 
   // Código de veterinaria editable (preanalítica / cobranzas / super admin).
   const [codigo, setCodigo] = useState(retiro?.codigo_original ?? "");
@@ -97,7 +109,6 @@ export function ControlCard({ control, tipo }: Props) {
     } else {
       updateData.importe_validado = parseFloat(String(importeValidado)) || 0;
       updateData.diferencia = (parseFloat(String(importeValidado)) || 0) - (Number(retiro?.importe_declarado) || 0);
-      updateData.medio_pago = medioPago;
     }
 
     const { error } = await supabase.from(table).update(updateData).eq("id", control.id);
@@ -200,33 +211,49 @@ export function ControlCard({ control, tipo }: Props) {
 
         {/* Controls (solo cobranzas) */}
         {tipo === "cob" && (
-          <div className="grid grid-cols-3 gap-2.5 mb-3">
-            <div>
-              <div className="text-[10px] font-semibold uppercase tracking-wide text-gy400 mb-1">Importe validado</div>
-              <input type="number" step="0.01"
-                className="w-full px-2.5 py-1.5 border-2 border-gy200 rounded-[6px] text-[12px] bg-gy50 focus:outline-none focus:border-g500"
-                value={importeValidado} onChange={(e) => setImporteValidado(e.target.value)} />
+          <>
+            {(preEtiquetas.length > 0 || preDetalle) && (
+              <div className="mb-3 rounded-[8px] border border-gy200 bg-gy50 px-3 py-2.5">
+                <div className="flex items-center gap-1.5 mb-1.5">
+                  <i className="ti ti-clipboard-check text-[13px] text-g600" />
+                  <span className="text-[10px] font-semibold uppercase tracking-wide text-gy500">Aclaraciones de preanalítica</span>
+                </div>
+                {preEtiquetas.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5 mb-1.5">
+                    {preEtiquetas.map((e) => (
+                      <span key={e} className="px-2 py-0.5 rounded-full text-[11px] bg-white text-g700 border border-g200">{e}</span>
+                    ))}
+                  </div>
+                )}
+                {preDetalle && <div className="text-[12px] text-gy700">{preDetalle}</div>}
+              </div>
+            )}
+
+            <div className="grid grid-cols-3 gap-2.5 mb-3">
+              <div>
+                <div className="text-[10px] font-semibold uppercase tracking-wide text-gy400 mb-1">Importe validado</div>
+                <input type="number" step="0.01"
+                  className="w-full px-2.5 py-1.5 border-2 border-gy200 rounded-[6px] text-[12px] bg-gy50 focus:outline-none focus:border-g500"
+                  value={importeValidado} onChange={(e) => setImporteValidado(e.target.value)} />
+              </div>
+              <div>
+                <div className="text-[10px] font-semibold uppercase tracking-wide text-gy400 mb-1">Medio de pago</div>
+                <div className="w-full px-2.5 py-1.5 border-2 border-gy100 rounded-[6px] text-[12px] bg-gy50 text-gy600 capitalize">
+                  {METODO_PAGO_LABEL[retiro?.metodo_pago as string] ?? "—"}
+                </div>
+              </div>
+              <div>
+                <div className="text-[10px] font-semibold uppercase tracking-wide text-gy400 mb-1">Estado</div>
+                <select className="w-full px-2.5 py-1.5 border-2 border-gy200 rounded-[6px] text-[12px] bg-gy50 focus:outline-none focus:border-g500"
+                  value={estado} onChange={(e) => setEstado(e.target.value)}>
+                  <option value="pendiente">Pendiente</option>
+                  <option value="adjudicado">Adjudicado</option>
+                  <option value="diferencia">Diferencia</option>
+                  <option value="no_corresponde">No corresponde</option>
+                </select>
+              </div>
             </div>
-            <div>
-              <div className="text-[10px] font-semibold uppercase tracking-wide text-gy400 mb-1">Medio de pago</div>
-              <select className="w-full px-2.5 py-1.5 border-2 border-gy200 rounded-[6px] text-[12px] bg-gy50 focus:outline-none focus:border-g500"
-                value={medioPago} onChange={(e) => setMedioPago(e.target.value)}>
-                <option value="efectivo">Efectivo</option>
-                <option value="transferencia">Transferencia</option>
-                <option value="mercadopago">Mercado Pago</option>
-              </select>
-            </div>
-            <div>
-              <div className="text-[10px] font-semibold uppercase tracking-wide text-gy400 mb-1">Estado</div>
-              <select className="w-full px-2.5 py-1.5 border-2 border-gy200 rounded-[6px] text-[12px] bg-gy50 focus:outline-none focus:border-g500"
-                value={estado} onChange={(e) => setEstado(e.target.value)}>
-                <option value="pendiente">Pendiente</option>
-                <option value="adjudicado">Adjudicado</option>
-                <option value="diferencia">Diferencia</option>
-                <option value="no_corresponde">No corresponde</option>
-              </select>
-            </div>
-          </div>
+          </>
         )}
 
         {tipo === "pre" && (

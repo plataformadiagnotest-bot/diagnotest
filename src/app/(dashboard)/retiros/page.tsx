@@ -24,7 +24,7 @@ const FILTERS = [
 export default async function RetirosPage({
   searchParams,
 }: {
-  searchParams: Promise<{ f?: string }>;
+  searchParams: Promise<{ f?: string; desde?: string; hasta?: string; cod?: string }>;
 }) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -32,7 +32,7 @@ export default async function RetirosPage({
   const { data: profile } = await supabase.from("profiles").select("rol").eq("id", user!.id).single();
   const isPersonal = profile?.rol === "personal_logistica";
 
-  const { f } = await searchParams;
+  const { f, desde, hasta, cod } = await searchParams;
   // Por defecto, el personal de logística ve sus retiros de hoy
   const filter = f ?? (isPersonal ? "hoy" : "todos");
 
@@ -63,7 +63,14 @@ export default async function RetirosPage({
   const preOf = (r: any) => Array.isArray(r.control_preanalitica) ? r.control_preanalitica[0]?.estado : (r.control_preanalitica)?.estado;
   const cobOf = (r: any) => Array.isArray(r.control_cobranzas) ? r.control_cobranzas[0]?.estado : (r.control_cobranzas)?.estado;
 
+  const codTerm = (cod ?? "").trim().toLowerCase();
   const retiros = (allRetiros ?? []).filter((r) => {
+    if (desde && r.fecha_operativa < desde) return false;
+    if (hasta && r.fecha_operativa > hasta) return false;
+    if (codTerm) {
+      const code = `${r.codigo_original ?? ""} ${(r.veterinaria as any)?.codigo ?? ""}`.toLowerCase();
+      if (!code.includes(codTerm)) return false;
+    }
     switch (filter) {
       case "hoy": return r.fecha_operativa === today;
       case "semana": return r.fecha_operativa >= weekAgo;
@@ -97,12 +104,19 @@ export default async function RetirosPage({
 
         {/* Filter chips */}
         <div className="flex gap-1.5 flex-wrap">
-          {FILTERS.map((opt) => (
-            <Link key={opt.key} href={`/retiros?f=${opt.key}`} scroll={false}
-              className={`px-3 py-1.5 rounded-full border text-[11px] transition-all ${filter === opt.key ? "bg-g800 text-white border-g800" : "bg-white text-gy600 border-gy200 hover:border-g400 hover:text-g700"}`}>
-              {opt.label}
-            </Link>
-          ))}
+          {FILTERS.map((opt) => {
+            const params = new URLSearchParams();
+            params.set("f", opt.key);
+            if (desde) params.set("desde", desde);
+            if (hasta) params.set("hasta", hasta);
+            if (cod) params.set("cod", cod);
+            return (
+              <Link key={opt.key} href={`/retiros?${params.toString()}`} scroll={false}
+                className={`px-3 py-1.5 rounded-full border text-[11px] transition-all ${filter === opt.key ? "bg-g800 text-white border-g800" : "bg-white text-gy600 border-gy200 hover:border-g400 hover:text-g700"}`}>
+                {opt.label}
+              </Link>
+            );
+          })}
           <div className="flex-1" />
           {!isPersonal && (
             <button className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gy200 text-[11px] text-gy600 rounded-full hover:bg-gy50">
@@ -110,6 +124,32 @@ export default async function RetirosPage({
             </button>
           )}
         </div>
+
+        {/* Filtros por fecha y código */}
+        <form method="get" className="flex items-end gap-2 flex-wrap">
+          <input type="hidden" name="f" value={filter} />
+          <div>
+            <label className="block text-[10px] font-semibold uppercase tracking-wide text-gy400 mb-1">Desde</label>
+            <input type="date" name="desde" defaultValue={desde ?? ""}
+              className="px-2.5 py-1.5 border-2 border-gy200 rounded-[8px] text-[12px] bg-gy50 focus:outline-none focus:border-g500" />
+          </div>
+          <div>
+            <label className="block text-[10px] font-semibold uppercase tracking-wide text-gy400 mb-1">Hasta</label>
+            <input type="date" name="hasta" defaultValue={hasta ?? ""}
+              className="px-2.5 py-1.5 border-2 border-gy200 rounded-[8px] text-[12px] bg-gy50 focus:outline-none focus:border-g500" />
+          </div>
+          <div className="min-w-[160px]">
+            <label className="block text-[10px] font-semibold uppercase tracking-wide text-gy400 mb-1">Código</label>
+            <input type="text" name="cod" defaultValue={cod ?? ""} placeholder="Código de veterinaria…"
+              className="w-full px-2.5 py-1.5 border-2 border-gy200 rounded-[8px] text-[12px] bg-gy50 focus:outline-none focus:border-g500" />
+          </div>
+          <button type="submit"
+            className="px-3.5 py-1.5 bg-g800 text-white text-[12px] font-medium rounded-[8px] hover:bg-g700">Filtrar</button>
+          {(desde || hasta || cod) && (
+            <Link href={`/retiros?f=${filter}`}
+              className="px-3 py-1.5 text-[12px] text-gy500 hover:text-gy700">Limpiar</Link>
+          )}
+        </form>
 
         {/* Table */}
         <div className="bg-white rounded-[14px] border border-gy200 shadow-sm overflow-hidden">

@@ -3,16 +3,34 @@ import { Topbar } from "@/components/layout/Topbar";
 import { PillStatus } from "@/components/ui/PillStatus";
 import { fmtMoneySign } from "@/lib/utils/format";
 
-export default async function CobranzasValidadosPage() {
+export default async function CobranzasValidadosPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ desde?: string; hasta?: string; q?: string }>;
+}) {
   const supabase = await createClient();
+  const { desde, hasta, q } = await searchParams;
 
-  const today = new Date().toISOString().split("T")[0];
-  const { data: controles } = await supabase
+  let query = supabase
     .from("control_cobranzas")
-    .select("*, retiro:retiro_id(id, veterinaria_texto_original, personal:personal_id(nombre))")
+    .select("*, retiro:retiro_id(id, codigo_original, veterinaria_texto_original, personal:personal_id(nombre))")
     .eq("estado", "adjudicado")
-    .gte("updated_at", today + "T00:00:00Z")
-    .order("updated_at", { ascending: false });
+    .order("updated_at", { ascending: false })
+    .limit(500);
+
+  if (desde) query = query.gte("updated_at", desde + "T00:00:00Z");
+  if (hasta) query = query.lte("updated_at", hasta + "T23:59:59Z");
+
+  const { data: rows } = await query;
+
+  const term = (q ?? "").trim().toLowerCase();
+  const controles = !term
+    ? (rows ?? [])
+    : (rows ?? []).filter((c) => {
+        const r = c.retiro as any;
+        return [r?.personal?.nombre, r?.veterinaria_texto_original, r?.codigo_original]
+          .some((v) => String(v ?? "").toLowerCase().includes(term));
+      });
 
   return (
     <div>
@@ -23,6 +41,27 @@ export default async function CobranzasValidadosPage() {
           </button>
         }
       />
+      <div className="px-6 pt-4">
+        <form method="get" className="flex items-end gap-2 flex-wrap">
+          <div>
+            <label className="block text-[10px] font-semibold uppercase tracking-wide text-gy400 mb-1">Desde</label>
+            <input type="date" name="desde" defaultValue={desde ?? ""}
+              className="px-2.5 py-1.5 border-2 border-gy200 rounded-[8px] text-[12px] bg-gy50 focus:outline-none focus:border-g500" />
+          </div>
+          <div>
+            <label className="block text-[10px] font-semibold uppercase tracking-wide text-gy400 mb-1">Hasta</label>
+            <input type="date" name="hasta" defaultValue={hasta ?? ""}
+              className="px-2.5 py-1.5 border-2 border-gy200 rounded-[8px] text-[12px] bg-gy50 focus:outline-none focus:border-g500" />
+          </div>
+          <div className="flex-1 min-w-[200px] max-w-[320px]">
+            <label className="block text-[10px] font-semibold uppercase tracking-wide text-gy400 mb-1">Buscar (cadete, veterinaria, código)</label>
+            <input type="text" name="q" defaultValue={q ?? ""} placeholder="Buscar…"
+              className="w-full px-2.5 py-1.5 border-2 border-gy200 rounded-[8px] text-[12px] bg-gy50 focus:outline-none focus:border-g500" />
+          </div>
+          <button type="submit"
+            className="px-3.5 py-1.5 bg-g800 text-white text-[12px] font-medium rounded-[8px] hover:bg-g700">Filtrar</button>
+        </form>
+      </div>
       <div className="p-6">
         <div className="bg-white rounded-[14px] border border-gy200 shadow-sm overflow-hidden">
           <div className="overflow-x-auto">
@@ -53,7 +92,7 @@ export default async function CobranzasValidadosPage() {
                   );
                 })}
                 {!controles?.length && (
-                  <tr><td colSpan={7} className="py-10 text-center text-gy400">Sin validaciones hoy</td></tr>
+                  <tr><td colSpan={7} className="py-10 text-center text-gy400">Sin validaciones en el período</td></tr>
                 )}
               </tbody>
             </table>
