@@ -202,8 +202,13 @@ export function MobileHome({ nombre, zonaNombre, personalId, veterinarias, pedid
           <div className="text-[11px] text-white/60 truncate">{zonaNombre} · Personal de logística</div>
         </div>
         <button onClick={handleLogout} aria-label="Cerrar sesión"
-          className="ml-auto flex items-center gap-1 text-white/60 hover:text-white text-[11px] font-medium px-2 py-1.5 rounded-lg hover:bg-white/10 transition-colors">
-          <i className="ti ti-logout text-[18px]" />
+          className="ml-auto flex items-center gap-1.5 text-white/80 hover:text-white text-[11px] font-semibold px-2.5 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 transition-colors shrink-0">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+            <path d="M16 17l5-5-5-5" />
+            <path d="M21 12H9" />
+          </svg>
+          Salir
         </button>
       </header>
 
@@ -288,7 +293,7 @@ export function MobileHome({ nombre, zonaNombre, personalId, veterinarias, pedid
               <input className={inputCls} placeholder="Opcional..." value={comentarios} onChange={(e) => setComentarios(e.target.value)} />
             </div>
             <div className="grid grid-cols-2 gap-2">
-              <input ref={fotoRetiroInput} type="file" accept="image/*" capture="environment" className="hidden"
+              <input ref={fotoRetiroInput} type="file" accept="image/*" className="hidden"
                 onChange={(e) => setFotoRetiro(e.target.files?.[0] ?? null)} />
               <button type="button" onClick={() => fotoRetiroInput.current?.click()}
                 className={`flex flex-col items-center justify-center gap-1 py-3 rounded-[10px] border-2 text-[12px] font-medium transition-all ${fotoRetiro ? "border-g500 bg-g50 text-g700" : "border-dashed border-gy300 text-gy500"}`}>
@@ -378,7 +383,7 @@ export function MobileHome({ nombre, zonaNombre, personalId, veterinarias, pedid
                 <input type="date" className={inputCls} value={gFecha} onChange={(e) => setGFecha(e.target.value)} />
               </div>
             </div>
-            <input ref={fotoGastoInput} type="file" accept="image/*" capture="environment" className="hidden"
+            <input ref={fotoGastoInput} type="file" accept="image/*" className="hidden"
               onChange={(e) => setFotoGasto(e.target.files?.[0] ?? null)} />
             <button type="button" onClick={() => fotoGastoInput.current?.click()}
               className={`w-full flex items-center justify-center gap-2 py-3 rounded-[10px] border-2 text-[13px] font-medium transition-all ${fotoGasto ? "border-purple-400 bg-purple-50 text-purple-700" : "border-dashed border-gy300 text-gy500"}`}>
