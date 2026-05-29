@@ -120,7 +120,7 @@ export function CadetesSync() {
                         </tbody>
                       </table>
                       <div className="px-3 py-2 text-[10px] text-amber-text bg-amber-bg border-t border-amber/30">
-                        ⚠️ Guardá estas contraseñas ahora: por seguridad no se vuelven a mostrar.
+                        ⚠️ Todos entran con la contraseña inicial <b>diagnotest</b>. Pediles que la cambien en su primer ingreso. Si alguien la olvida, podés blanquearla desde Configuración → Usuarios.
                       </div>
                     </div>
                   )}

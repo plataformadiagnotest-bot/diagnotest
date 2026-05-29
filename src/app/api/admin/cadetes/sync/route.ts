@@ -49,14 +49,10 @@ function parseCsv(text: string): string[][] {
 const norm = (s: string) =>
   s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().trim();
 
-function genPassword(): string {
-  const letras = "abcdefghjkmnpqrstuvwxyz"; // sin i,l,o,ñ ambiguas
-  const nums = "23456789";
-  let p = "";
-  for (let i = 0; i < 4; i++) p += letras[Math.floor(Math.random() * letras.length)];
-  for (let i = 0; i < 4; i++) p += nums[Math.floor(Math.random() * nums.length)];
-  return p;
-}
+// Contraseña inicial fija para todos los cadetes nuevos.
+// La comunican una sola vez ("entrá con esta y cambiala"); el super admin
+// puede blanquearla desde Configuración → Usuarios si alguien la olvida.
+const CLAVE_INICIAL = "diagnotest";
 
 interface ResultRow { nombre: string; email: string; password?: string; estado: "creado" | "existente" | "error"; detalle?: string }
 
@@ -146,7 +142,7 @@ export async function POST(req: Request) {
     }
 
     // Crear usuario + ficha
-    const password = genPassword();
+    const password = CLAVE_INICIAL;
     const { data: created, error } = await admin.auth.admin.createUser({
       email, password, email_confirm: true,
       user_metadata: { nombre, rol: "personal_logistica" },
