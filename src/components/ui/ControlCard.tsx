@@ -165,6 +165,10 @@ export function ControlCard({ control, tipo }: Props) {
               {tipo === "pre" ? retiro?.cantidad_muestras : fmtMoneySign(retiro?.importe_declarado ?? 0)}
             </div>
           </div>
+          <div>
+            <div className="text-[9px] uppercase tracking-wide text-gy400 font-semibold mb-0.5">Cadete</div>
+            <div className="text-[13px] font-semibold text-gy900">{personal?.nombre ?? "—"}</div>
+          </div>
           {retiro?.comentarios && (
             <div className="flex-1">
               <div className="text-[9px] uppercase tracking-wide text-gy400 font-semibold mb-0.5">Comentarios</div>
