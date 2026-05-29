@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { Topbar } from "@/components/layout/Topbar";
 import { fmtMoneySign } from "@/lib/utils/format";
+import { RevisarDiferencia } from "@/components/cobranzas/RevisarDiferencia";
 
 export default async function DiferenciasPage() {
   const supabase = await createClient();
@@ -41,9 +42,14 @@ export default async function DiferenciasPage() {
                       </td>
                       <td className="px-3.5 py-2.5 text-gy600">{c.detalle ?? "—"}</td>
                       <td className="px-3.5 py-2.5">
-                        <button className={`flex items-center gap-1 px-2.5 py-1 text-[11px] rounded-[6px] border ${diff < 0 ? "bg-red-50 text-red-700 border-red-200" : "bg-g50 text-g700 border-g200"}`}>
-                          Revisar
-                        </button>
+                        <RevisarDiferencia
+                          controlId={c.id}
+                          declarado={c.importe_declarado}
+                          validado={c.importe_validado ?? 0}
+                          detalle={c.detalle ?? null}
+                          veterinaria={r?.veterinaria_texto_original ?? null}
+                          personal={r?.personal?.nombre ?? null}
+                        />
                       </td>
                     </tr>
                   );
