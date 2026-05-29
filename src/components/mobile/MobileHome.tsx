@@ -96,7 +96,8 @@ export function MobileHome({ nombre, zonaNombre, personalId, veterinarias, pedid
     if (!vetTexto.trim()) { toast("error", "Indicá la veterinaria"); return; }
     if (!muestras.trim() || parseInt(muestras) < 0) { toast("error", "Ingresá la cantidad de muestras"); return; }
     if (!importe.trim() || parseFloat(importe) < 0) { toast("error", "Ingresá el importe"); return; }
-    if (!metodoPago) { toast("error", "Seleccioná el tipo de pago"); return; }
+    const hayPago = parseFloat(importe) > 0;
+    if (hayPago && !metodoPago) { toast("error", "Seleccioná el tipo de pago"); return; }
     setSavingRetiro(true);
 
     let comprobanteUrl: string | null = null;
@@ -116,7 +117,7 @@ export function MobileHome({ nombre, zonaNombre, personalId, veterinarias, pedid
       codigo_original: codigo || null,
       cantidad_muestras: parseInt(muestras) || 0,
       importe_declarado: parseFloat(importe) || 0,
-      metodo_pago: metodoPago as MetodoPago,
+      metodo_pago: hayPago ? (metodoPago as MetodoPago) : null,
       comprobante_url: comprobanteUrl,
       comentarios: comentarios || null,
       tipo: "veterinaria" as const,
@@ -277,17 +278,19 @@ export function MobileHome({ nombre, zonaNombre, personalId, veterinarias, pedid
                   value={importe} onChange={(e) => setImporte(e.target.value)} />
               </div>
             </div>
-            <div>
-              <label className="block text-[11px] font-semibold text-gy600 mb-1.5">Tipo de pago <span className="text-red-500">*</span></label>
-              <div className="grid grid-cols-3 gap-2">
-                {([["efectivo", "Efectivo"], ["transferencia", "Transferencia"], ["mercado_pago", "Mercado Pago"]] as [MetodoPago, string][]).map(([val, label]) => (
-                  <button key={val} type="button" onClick={() => setMetodoPago(val)}
-                    className={`py-2.5 px-1 rounded-[10px] border-2 text-[12px] font-medium transition-all ${metodoPago === val ? "bg-g800 text-white border-g800" : "bg-white text-gy600 border-gy200"}`}>
-                    {label}
-                  </button>
-                ))}
+            {parseFloat(importe) > 0 && (
+              <div>
+                <label className="block text-[11px] font-semibold text-gy600 mb-1.5">Tipo de pago <span className="text-red-500">*</span></label>
+                <div className="grid grid-cols-3 gap-2">
+                  {([["efectivo", "Efectivo"], ["transferencia", "Transferencia"], ["mercado_pago", "Mercado Pago"]] as [MetodoPago, string][]).map(([val, label]) => (
+                    <button key={val} type="button" onClick={() => setMetodoPago(val)}
+                      className={`py-2.5 px-1 rounded-[10px] border-2 text-[12px] font-medium transition-all ${metodoPago === val ? "bg-g800 text-white border-g800" : "bg-white text-gy600 border-gy200"}`}>
+                      {label}
+                    </button>
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
             <div>
               <label className="block text-[11px] font-semibold text-gy600 mb-1.5">Comentarios</label>
               <input className={inputCls} placeholder="Opcional..." value={comentarios} onChange={(e) => setComentarios(e.target.value)} />

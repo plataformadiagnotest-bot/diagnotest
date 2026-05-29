@@ -40,7 +40,7 @@ export default async function RetirosPage({
     .from("retiros")
     .select(`
       id, fecha_operativa, timestamp_carga, tipo, urgente, estado, sincronizado, anulado,
-      cantidad_muestras, importe_declarado, metodo_pago, veterinaria_texto_original, codigo_original,
+      cantidad_muestras, importe_declarado, metodo_pago, comprobante_url, veterinaria_texto_original, codigo_original,
       personal:personal_id(nombre),
       veterinaria:veterinaria_id(nombre, codigo),
       control_preanalitica:control_preanalitica(estado),
@@ -155,9 +155,13 @@ export default async function RetirosPage({
                         <div className="flex items-center gap-1.5">
                           {r.urgente && <PillStatus variant="urgente" />}
                           {!r.sincronizado && <PillStatus variant="nosync" />}
-                          <button className="px-2 py-1 text-[11px] bg-white border border-gy200 rounded-[6px] hover:bg-gy50 flex items-center gap-1">
-                            <i className="ti ti-eye text-[13px]" />
-                          </button>
+                          {r.comprobante_url && (
+                            <a href={r.comprobante_url as string} target="_blank" rel="noopener noreferrer"
+                              title="Ver ticket"
+                              className="px-2 py-1 text-[11px] bg-white border border-gy200 rounded-[6px] hover:bg-gy50 flex items-center gap-1 text-g700">
+                              <i className="ti ti-photo text-[13px]" />
+                            </a>
+                          )}
                         </div>
                       </td>
                     </tr>

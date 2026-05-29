@@ -98,7 +98,7 @@ export interface Retiro {
   codigo_original: string | null;
   cantidad_muestras: number;
   importe_declarado: number;
-  metodo_pago: MetodoPago;
+  metodo_pago: MetodoPago | null;
   comprobante_url: string | null;
   comentarios: string | null;
   tipo: TipoRetiro;

@@ -16,6 +16,7 @@ interface Gasto {
   estado: string;
   created_at: string;
   observacion_jefe: string | null;
+  comprobante_url: string | null;
   personal: { nombre: string } | null;
 }
 
@@ -135,6 +136,12 @@ export function GastosAuthClient({ gastos }: { gastos: Gasto[] }) {
                   </div>
                   {isObs && (
                     <div className="mt-1.5 text-[11px] text-red-600 italic">Obs: {g.observacion_jefe}</div>
+                  )}
+                  {g.comprobante_url && (
+                    <a href={g.comprobante_url} target="_blank" rel="noopener noreferrer"
+                      className="mt-1.5 inline-flex items-center gap-1 text-[11px] font-medium text-g700 hover:text-g800 hover:underline">
+                      <i className="ti ti-photo text-[13px]" /> Ver ticket
+                    </a>
                   )}
                   {obsOpen[g.id] && (
                     <div className="flex gap-2 mt-2">

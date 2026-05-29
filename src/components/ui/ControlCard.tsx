@@ -63,6 +63,12 @@ export function ControlCard({ control, tipo }: Props) {
         <span className="text-[14px] font-semibold text-gy900 flex-1">{retiro?.veterinaria_texto_original ?? "—"}</span>
         {retiro?.codigo_original && <span className="font-mono text-[11px] text-gy400">{retiro.codigo_original}</span>}
         <span className="text-[11px] text-gy400">{personal?.nombre ?? "—"} · {retiro?.fecha_operativa ? formatDateTime(retiro.timestamp_carga) : ""}</span>
+        {retiro?.comprobante_url && (
+          <a href={retiro.comprobante_url} target="_blank" rel="noopener noreferrer"
+            className="inline-flex items-center gap-1 text-[11px] font-medium text-g700 hover:text-g800 hover:underline">
+            <i className="ti ti-photo text-[13px]" /> Ver ticket
+          </a>
+        )}
         {isUrgente && <PillStatus variant="urgente" />}
       </div>
 
