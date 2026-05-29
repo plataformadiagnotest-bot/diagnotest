@@ -10,6 +10,8 @@ export type TipoPersonal = "fijo" | "reemplazo" | "ventanilla";
 
 export type TipoRetiro = "veterinaria" | "ventanilla" | "reemplazo" | "otro";
 
+export type MetodoPago = "efectivo" | "transferencia" | "mercado_pago";
+
 export type EstadoRetiro =
   | "registrado"
   | "en_proceso"
@@ -96,6 +98,7 @@ export interface Retiro {
   codigo_original: string | null;
   cantidad_muestras: number;
   importe_declarado: number;
+  metodo_pago: MetodoPago;
   comentarios: string | null;
   tipo: TipoRetiro;
   urgente: boolean;

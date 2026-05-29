@@ -7,7 +7,7 @@ import { useOffline } from "@/lib/hooks/useOffline";
 import { saveRetiroOffline, addToSyncQueue } from "@/lib/offline/indexeddb";
 import { toast } from "@/components/ui/ToastNotification";
 import { todayISO, nowISO } from "@/lib/utils/dates";
-import type { TipoRetiro } from "@/types";
+import type { TipoRetiro, MetodoPago } from "@/types";
 
 interface VetOption { id: string; codigo: string; nombre: string; zona_id: string | null }
 interface PersonalOption { id: string; nombre: string; tipo: string }
@@ -42,6 +42,7 @@ export function RetiroForm({ personalId, pedidoId, prefill, onSaved }: Props) {
     fecha_operativa: todayISO(),
     cantidad_muestras: "",
     importe_declarado: "",
+    metodo_pago: "" as MetodoPago | "",
     comentarios: "",
     tipo: "veterinaria" as TipoRetiro,
     urgente: prefill?.urgente ?? false,
@@ -65,6 +66,7 @@ export function RetiroForm({ personalId, pedidoId, prefill, onSaved }: Props) {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (!form.metodo_pago) { toast("error", "Seleccioná el tipo de pago"); return; }
     setLoading(true);
 
     const id = crypto.randomUUID();
@@ -78,6 +80,7 @@ export function RetiroForm({ personalId, pedidoId, prefill, onSaved }: Props) {
       codigo_original: form.codigo_original || null,
       cantidad_muestras: parseInt(form.cantidad_muestras) || 0,
       importe_declarado: parseFloat(form.importe_declarado) || 0,
+      metodo_pago: form.metodo_pago as MetodoPago,
       comentarios: form.comentarios || null,
       tipo: form.tipo,
       urgente: form.urgente,
@@ -215,6 +218,19 @@ export function RetiroForm({ personalId, pedidoId, prefill, onSaved }: Props) {
             <label className="text-[11px] font-semibold text-gy600">Importe ($)</label>
             <input type="number" min="0" step="0.01" className="px-3 py-2 border-2 border-gy200 rounded-[6px] text-[13px] bg-gy50 focus:outline-none focus:border-g500"
               placeholder="0.00" value={form.importe_declarado} onChange={(e) => set("importe_declarado", e.target.value)} />
+          </div>
+        </div>
+        <div className="flex flex-col gap-1.5 mt-3.5">
+          <label className="text-[11px] font-semibold text-gy600">Tipo de pago <span className="text-red-500">*</span></label>
+          <div className="flex gap-2 flex-wrap">
+            {([["efectivo", "Efectivo"], ["transferencia", "Transferencia"], ["mercado_pago", "Mercado Pago"]] as [MetodoPago, string][]).map(([val, label]) => (
+              <button key={val} type="button"
+                className={`px-3.5 py-1.5 rounded-[6px] border-2 text-[12px] transition-all ${form.metodo_pago === val ? "bg-g800 text-white border-g800" : "bg-white text-gy600 border-gy200"}`}
+                onClick={() => set("metodo_pago", val)}
+              >
+                {label}
+              </button>
+            ))}
           </div>
         </div>
         <div className="flex flex-col gap-1.5 mt-3.5">

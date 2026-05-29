@@ -6,18 +6,41 @@ import { fmtMoney } from "@/lib/utils/format";
 import { formatDateTime } from "@/lib/utils/dates";
 import Link from "next/link";
 
-export default async function RetirosPage() {
+const METODO_PAGO_LABEL: Record<string, string> = {
+  efectivo: "Efectivo",
+  transferencia: "Transferencia",
+  mercado_pago: "Mercado Pago",
+};
+
+const FILTERS = [
+  { key: "todos", label: "Todos" },
+  { key: "hoy", label: "Hoy" },
+  { key: "semana", label: "Esta semana" },
+  { key: "pre_pendiente", label: "Pre. pendiente" },
+  { key: "observados", label: "Observados" },
+  { key: "urgentes", label: "Urgentes" },
+] as const;
+
+export default async function RetirosPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ f?: string }>;
+}) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
   const { data: profile } = await supabase.from("profiles").select("rol").eq("id", user!.id).single();
   const isPersonal = profile?.rol === "personal_logistica";
 
+  const { f } = await searchParams;
+  // Por defecto, el personal de logística ve sus retiros de hoy
+  const filter = f ?? (isPersonal ? "hoy" : "todos");
+
   let query = supabase
     .from("retiros")
     .select(`
       id, fecha_operativa, timestamp_carga, tipo, urgente, estado, sincronizado, anulado,
-      cantidad_muestras, importe_declarado, veterinaria_texto_original, codigo_original,
+      cantidad_muestras, importe_declarado, metodo_pago, veterinaria_texto_original, codigo_original,
       personal:personal_id(nombre),
       veterinaria:veterinaria_id(nombre, codigo),
       control_preanalitica:control_preanalitica(estado),
@@ -32,10 +55,26 @@ export default async function RetirosPage() {
     if (pers) query = query.eq("personal_id", pers.id);
   }
 
-  const { data: retiros } = await query;
+  const { data: allRetiros } = await query;
 
   const today = new Date().toISOString().split("T")[0];
-  const retirosHoy = retiros?.filter((r) => r.fecha_operativa === today) ?? [];
+  const weekAgo = new Date(Date.now() - 6 * 86400000).toISOString().split("T")[0];
+
+  const preOf = (r: any) => Array.isArray(r.control_preanalitica) ? r.control_preanalitica[0]?.estado : (r.control_preanalitica)?.estado;
+  const cobOf = (r: any) => Array.isArray(r.control_cobranzas) ? r.control_cobranzas[0]?.estado : (r.control_cobranzas)?.estado;
+
+  const retiros = (allRetiros ?? []).filter((r) => {
+    switch (filter) {
+      case "hoy": return r.fecha_operativa === today;
+      case "semana": return r.fecha_operativa >= weekAgo;
+      case "pre_pendiente": return (preOf(r) ?? "pendiente") === "pendiente";
+      case "observados": return preOf(r) === "observado" || cobOf(r) === "diferencia";
+      case "urgentes": return r.urgente;
+      default: return true;
+    }
+  });
+
+  const retirosHoy = (allRetiros ?? []).filter((r) => r.fecha_operativa === today);
   const muestrasHoy = retirosHoy.reduce((s, r) => s + (r.cantidad_muestras ?? 0), 0);
 
   return (
@@ -52,16 +91,17 @@ export default async function RetirosPage() {
         <div className="grid grid-cols-3 gap-3.5">
           <StatCard label="Retiros hoy" value={retirosHoy.length}
             badge={<span className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full bg-g50 text-g700 font-medium">▲ 2 vs ayer</span>} />
-          <StatCard label={isPersonal ? "Este mes" : "Total cargados"} value={retiros?.length ?? 0} />
+          <StatCard label={isPersonal ? "Este mes" : "Total cargados"} value={allRetiros?.length ?? 0} />
           <StatCard label="Muestras hoy" value={muestrasHoy} accent="warn" />
         </div>
 
         {/* Filter chips */}
         <div className="flex gap-1.5 flex-wrap">
-          {["Todos", "Hoy", "Esta semana", "Pre. pendiente", "Observados", "Urgentes"].map((f, i) => (
-            <button key={f} className={`px-3 py-1.5 rounded-full border text-[11px] transition-all ${i === 0 ? "bg-g800 text-white border-g800" : "bg-white text-gy600 border-gy200 hover:border-g400 hover:text-g700"}`}>
-              {f}
-            </button>
+          {FILTERS.map((opt) => (
+            <Link key={opt.key} href={`/retiros?f=${opt.key}`} scroll={false}
+              className={`px-3 py-1.5 rounded-full border text-[11px] transition-all ${filter === opt.key ? "bg-g800 text-white border-g800" : "bg-white text-gy600 border-gy200 hover:border-g400 hover:text-g700"}`}>
+              {opt.label}
+            </Link>
           ))}
           <div className="flex-1" />
           {!isPersonal && (
@@ -83,6 +123,7 @@ export default async function RetirosPage() {
                   <th className="px-3.5 py-2.5 text-left text-[10px] font-bold uppercase tracking-wide text-gy400 border-b border-gy200">Veterinaria</th>
                   <th className="px-3.5 py-2.5 text-center text-[10px] font-bold uppercase tracking-wide text-gy400 border-b border-gy200">Muestras</th>
                   <th className="px-3.5 py-2.5 text-left text-[10px] font-bold uppercase tracking-wide text-gy400 border-b border-gy200">Importe</th>
+                  <th className="px-3.5 py-2.5 text-left text-[10px] font-bold uppercase tracking-wide text-gy400 border-b border-gy200">Pago</th>
                   <th className="px-3.5 py-2.5 text-left text-[10px] font-bold uppercase tracking-wide text-gy400 border-b border-gy200">Preanalítica</th>
                   <th className="px-3.5 py-2.5 text-left text-[10px] font-bold uppercase tracking-wide text-gy400 border-b border-gy200">Cobranzas</th>
                   <th className="px-3.5 py-2.5 text-left text-[10px] font-bold uppercase tracking-wide text-gy400 border-b border-gy200"></th>
@@ -103,6 +144,7 @@ export default async function RetirosPage() {
                       </td>
                       <td className="px-3.5 py-2.5 text-center font-semibold">{r.cantidad_muestras}</td>
                       <td className="px-3.5 py-2.5">${fmtMoney(r.importe_declarado)}</td>
+                      <td className="px-3.5 py-2.5 text-gy600">{METODO_PAGO_LABEL[r.metodo_pago as string] ?? "—"}</td>
                       <td className="px-3.5 py-2.5">
                         <PillStatus variant={preEstado === "ok" ? "ok" : preEstado === "observado" ? "observado" : "pendiente"} />
                       </td>
@@ -122,7 +164,7 @@ export default async function RetirosPage() {
                   );
                 })}
                 {!retiros?.length && (
-                  <tr><td colSpan={9} className="py-10 text-center text-gy400 text-sm">Sin retiros registrados</td></tr>
+                  <tr><td colSpan={10} className="py-10 text-center text-gy400 text-sm">Sin retiros registrados</td></tr>
                 )}
               </tbody>
             </table>

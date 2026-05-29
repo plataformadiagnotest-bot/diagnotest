@@ -8,6 +8,7 @@ import { saveRetiroOffline, addToSyncQueue } from "@/lib/offline/indexeddb";
 import { toast } from "@/components/ui/ToastNotification";
 import { todayISO, nowISO } from "@/lib/utils/dates";
 import { initials } from "@/lib/utils/format";
+import type { MetodoPago } from "@/types";
 import type { PedidoMobile } from "@/app/(dashboard)/inicio/page";
 
 interface VetOption { id: string; codigo: string; nombre: string }
@@ -36,6 +37,7 @@ export function MobileHome({ nombre, zonaNombre, personalId, veterinarias, pedid
   const [codigo, setCodigo] = useState("");
   const [muestras, setMuestras] = useState("");
   const [importe, setImporte] = useState("");
+  const [metodoPago, setMetodoPago] = useState<MetodoPago | "">("");
   const [comentarios, setComentarios] = useState("");
   const [urgente, setUrgente] = useState(false);
   const [pedidoId, setPedidoId] = useState<string | null>(null);
@@ -67,13 +69,16 @@ export function MobileHome({ nombre, zonaNombre, personalId, veterinarias, pedid
 
   function resetRetiro() {
     setVetTexto(""); setVetId(null); setCodigo("");
-    setMuestras(""); setImporte(""); setComentarios("");
+    setMuestras(""); setImporte(""); setMetodoPago(""); setComentarios("");
     setUrgente(false); setPedidoId(null);
   }
 
   async function guardarRetiro() {
     if (!personalId) { toast("error", "No se encontró tu perfil de personal"); return; }
     if (!vetTexto.trim()) { toast("error", "Indicá la veterinaria"); return; }
+    if (!muestras.trim() || parseInt(muestras) < 0) { toast("error", "Ingresá la cantidad de muestras"); return; }
+    if (!importe.trim() || parseFloat(importe) < 0) { toast("error", "Ingresá el importe"); return; }
+    if (!metodoPago) { toast("error", "Seleccioná el tipo de pago"); return; }
     setSavingRetiro(true);
 
     const id = crypto.randomUUID();
@@ -87,6 +92,7 @@ export function MobileHome({ nombre, zonaNombre, personalId, veterinarias, pedid
       codigo_original: codigo || null,
       cantidad_muestras: parseInt(muestras) || 0,
       importe_declarado: parseFloat(importe) || 0,
+      metodo_pago: metodoPago as MetodoPago,
       comentarios: comentarios || null,
       tipo: "veterinaria" as const,
       urgente,
@@ -212,8 +218,8 @@ export function MobileHome({ nombre, zonaNombre, personalId, veterinarias, pedid
               </div>
             )}
             <div>
-              <label className="block text-[11px] font-semibold text-gy600 mb-1.5">Veterinaria</label>
-              <input list="mob-vets" className={inputCls} placeholder="Buscar por nombre o código..."
+              <label className="block text-[11px] font-semibold text-gy600 mb-1.5">Veterinaria <span className="text-red-500">*</span></label>
+              <input list="mob-vets" required className={inputCls} placeholder="Buscar por nombre o código..."
                 value={vetTexto} onChange={(e) => matchVet(e.target.value)} />
               <datalist id="mob-vets">
                 {veterinarias.map((v) => <option key={v.id} value={v.nombre}>{v.codigo}</option>)}
@@ -221,14 +227,25 @@ export function MobileHome({ nombre, zonaNombre, personalId, veterinarias, pedid
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block text-[11px] font-semibold text-gy600 mb-1.5">Muestras</label>
-                <input type="number" inputMode="numeric" min="0" className={`${inputCls} ${bigCls}`} placeholder="0"
+                <label className="block text-[11px] font-semibold text-gy600 mb-1.5">Muestras <span className="text-red-500">*</span></label>
+                <input type="number" inputMode="numeric" min="0" required className={`${inputCls} ${bigCls}`} placeholder="0"
                   value={muestras} onChange={(e) => setMuestras(e.target.value)} />
               </div>
               <div>
-                <label className="block text-[11px] font-semibold text-gy600 mb-1.5">Importe $</label>
-                <input type="number" inputMode="decimal" min="0" className={`${inputCls} ${bigCls}`} placeholder="0"
+                <label className="block text-[11px] font-semibold text-gy600 mb-1.5">Importe $ <span className="text-red-500">*</span></label>
+                <input type="number" inputMode="decimal" min="0" required className={`${inputCls} ${bigCls}`} placeholder="0"
                   value={importe} onChange={(e) => setImporte(e.target.value)} />
+              </div>
+            </div>
+            <div>
+              <label className="block text-[11px] font-semibold text-gy600 mb-1.5">Tipo de pago <span className="text-red-500">*</span></label>
+              <div className="grid grid-cols-3 gap-2">
+                {([["efectivo", "Efectivo"], ["transferencia", "Transferencia"], ["mercado_pago", "Mercado Pago"]] as [MetodoPago, string][]).map(([val, label]) => (
+                  <button key={val} type="button" onClick={() => setMetodoPago(val)}
+                    className={`py-2.5 px-1 rounded-[10px] border-2 text-[12px] font-medium transition-all ${metodoPago === val ? "bg-g800 text-white border-g800" : "bg-white text-gy600 border-gy200"}`}>
+                    {label}
+                  </button>
+                ))}
               </div>
             </div>
             <div>

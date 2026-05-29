@@ -13,6 +13,7 @@ create type user_role as enum (
 );
 create type tipo_personal as enum ('fijo', 'reemplazo', 'ventanilla');
 create type tipo_retiro as enum ('veterinaria', 'ventanilla', 'reemplazo', 'otro');
+create type metodo_pago as enum ('efectivo', 'transferencia', 'mercado_pago');
 create type estado_retiro as enum (
   'registrado', 'en_proceso', 'controlado', 'finalizado',
   'anulado', 'duplicado_sospechoso'
@@ -96,6 +97,7 @@ create table retiros (
   codigo_original           text,
   cantidad_muestras         integer not null default 0 check (cantidad_muestras >= 0),
   importe_declarado         numeric(12,2) not null default 0 check (importe_declarado >= 0),
+  metodo_pago               metodo_pago not null default 'efectivo',
   comentarios               text,
   tipo                      tipo_retiro not null default 'veterinaria',
   urgente                   boolean not null default false,
