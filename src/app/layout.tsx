@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { ToastContainer } from "@/components/ui/ToastNotification";
+import { ServiceWorkerUpdater } from "@/components/pwa/ServiceWorkerUpdater";
 
 export const metadata: Metadata = {
   title: "DIAGNOTEST — Plataforma Operativa",
@@ -24,6 +25,7 @@ export default function RootLayout({
       <body className="font-sans antialiased">
         {children}
         <ToastContainer />
+        <ServiceWorkerUpdater />
       </body>
     </html>
   );
