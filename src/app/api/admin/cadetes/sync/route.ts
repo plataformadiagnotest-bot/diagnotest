@@ -108,14 +108,26 @@ export async function POST(req: Request) {
 
   for (const r of rows.slice(1)) {
     const nombre = (r[colNombre] ?? "").trim();
-    const email = (r[colEmail] ?? "").trim().toLowerCase();
+    // Saneamos el email: sin espacios internos y en minúsculas.
+    const email = (r[colEmail] ?? "").trim().toLowerCase().replace(/\s+/g, "");
     if (!nombre && !email) continue;
     if (!nombre || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       results.push({ nombre: nombre || "(sin nombre)", email: email || "(sin email)", estado: "error", detalle: "Nombre o email inválido" });
       continue;
     }
 
-    const zonaId = colZona !== -1 ? (zonaByName.get(norm(r[colZona] ?? "")) ?? null) : null;
+    // Zona: si el nombre no existe, se crea automáticamente (el Sheet manda).
+    let zonaId: string | null = null;
+    const zonaNombre = colZona !== -1 ? (r[colZona] ?? "").trim() : "";
+    if (zonaNombre) {
+      const key = norm(zonaNombre);
+      if (zonaByName.has(key)) {
+        zonaId = zonaByName.get(key) ?? null;
+      } else {
+        const { data: nz } = await admin.from("zonas").insert({ nombre: zonaNombre, activa: true }).select("id").single();
+        if (nz) { zonaId = nz.id; zonaByName.set(key, nz.id); }
+      }
+    }
     const tipoRaw = colTipo !== -1 ? norm(r[colTipo] ?? "") : "";
     const tipo = ["fijo", "reemplazo", "ventanilla"].includes(tipoRaw) ? tipoRaw : "fijo";
 
