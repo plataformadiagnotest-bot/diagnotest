@@ -163,3 +163,29 @@ export async function PATCH(req: Request) {
 
   return NextResponse.json({ ok: true });
 }
+
+// ── Eliminar usuario (auth + profile + ficha de Personal) ───────
+export async function DELETE(req: Request) {
+  const guard = await requireSuperAdmin();
+  if ("error" in guard) return NextResponse.json({ error: guard.error }, { status: guard.status });
+
+  let body: { id?: string };
+  try { body = await req.json(); } catch { return NextResponse.json({ error: "Body inválido" }, { status: 400 }); }
+
+  const id = body.id;
+  if (!id) return NextResponse.json({ error: "Falta el id del usuario" }, { status: 400 });
+  if (id === guard.user.id) {
+    return NextResponse.json({ error: "No podés eliminar tu propio usuario" }, { status: 400 });
+  }
+
+  const admin = createAdminClient();
+
+  // Borramos primero las filas que dependen del profile, luego el usuario de auth.
+  await admin.from("personal").delete().eq("profile_id", id);
+  await admin.from("profiles").delete().eq("id", id);
+
+  const { error } = await admin.auth.admin.deleteUser(id);
+  if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+
+  return NextResponse.json({ ok: true });
+}

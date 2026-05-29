@@ -53,6 +53,21 @@ export function UsuariosManager({ usuarios, zonas }: { usuarios: UsuarioRow[]; z
     router.refresh();
   }
 
+  async function eliminar(u: UsuarioRow) {
+    if (!confirm(`¿Eliminar definitivamente a "${u.nombre}" (${u.email})?\n\nSe borra su usuario, acceso y ficha de personal. Esta acción no se puede deshacer.`)) return;
+    setBusyId(u.id);
+    const res = await fetch("/api/admin/usuarios", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: u.id }),
+    });
+    const json = await res.json();
+    setBusyId(null);
+    if (!res.ok) { toast("error", json.error ?? "No se pudo eliminar"); return; }
+    toast("success", "Usuario eliminado");
+    router.refresh();
+  }
+
   return (
     <div className="bg-white rounded-[14px] border border-gy200 shadow-sm overflow-hidden">
       <div className="px-4 py-3.5 border-b border-gy100 flex items-center gap-2">
@@ -91,6 +106,11 @@ export function UsuariosManager({ usuarios, zonas }: { usuarios: UsuarioRow[]; z
                       role="switch" aria-checked={u.activo}
                       className={`relative w-10 h-[22px] rounded-full transition-colors disabled:opacity-50 ${u.activo ? "bg-g500" : "bg-gy300"}`}>
                       <span className={`absolute top-[2px] left-[2px] w-[18px] h-[18px] rounded-full bg-white shadow transition-transform ${u.activo ? "translate-x-[18px]" : ""}`} />
+                    </button>
+                    <button onClick={() => eliminar(u)} disabled={busyId === u.id}
+                      title="Eliminar usuario"
+                      className="px-2 py-1 text-[11px] bg-white border border-red-200 text-red-600 rounded-[6px] hover:bg-red-50 disabled:opacity-50 flex items-center gap-1">
+                      <i className="ti ti-trash text-[13px]" />
                     </button>
                   </div>
                 </td>
