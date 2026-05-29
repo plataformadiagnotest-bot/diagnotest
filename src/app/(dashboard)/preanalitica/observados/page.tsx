@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { Topbar } from "@/components/layout/Topbar";
 import { PillStatus } from "@/components/ui/PillStatus";
 import { ResolverButton } from "@/components/preanalitica/ResolverButton";
+import { EtiquetasChips } from "@/components/preanalitica/EtiquetasChips";
 
 export default async function PreanaliticaObservadosPage() {
   const supabase = await createClient();
@@ -21,7 +22,7 @@ export default async function PreanaliticaObservadosPage() {
             <table className="w-full border-collapse text-[12px]">
               <thead>
                 <tr className="bg-gy50">
-                  {["ID", "Personal", "Veterinaria", "Estado", "Detalle", "Acción"].map((h) => (
+                  {["ID", "Personal", "Veterinaria", "Estado", "Etiquetas", "Detalle", "Acción"].map((h) => (
                     <th key={h} className="px-3.5 py-2.5 text-left text-[10px] font-bold uppercase tracking-wide text-gy400 border-b border-gy200">{h}</th>
                   ))}
                 </tr>
@@ -35,6 +36,7 @@ export default async function PreanaliticaObservadosPage() {
                       <td className="px-3.5 py-2.5 font-medium">{r?.personal?.nombre ?? "—"}</td>
                       <td className="px-3.5 py-2.5">{r?.veterinaria_texto_original}</td>
                       <td className="px-3.5 py-2.5"><PillStatus variant={c.estado === "rechazado" ? "observado" : "observado"} label={c.estado} /></td>
+                      <td className="px-3.5 py-2.5"><EtiquetasChips etiquetas={c.etiquetas} /></td>
                       <td className="px-3.5 py-2.5 text-gy600">{c.detalle ?? "—"}</td>
                       <td className="px-3.5 py-2.5">
                         <ResolverButton controlId={c.id} />
@@ -43,7 +45,7 @@ export default async function PreanaliticaObservadosPage() {
                   );
                 })}
                 {!controles?.length && (
-                  <tr><td colSpan={6} className="py-10 text-center text-gy400">Sin registros observados</td></tr>
+                  <tr><td colSpan={7} className="py-10 text-center text-gy400">Sin registros observados</td></tr>
                 )}
               </tbody>
             </table>

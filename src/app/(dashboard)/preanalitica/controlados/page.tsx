@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { Topbar } from "@/components/layout/Topbar";
-import { PillStatus } from "@/components/ui/PillStatus";
+import { EtiquetasChips } from "@/components/preanalitica/EtiquetasChips";
 import { formatDateTime } from "@/lib/utils/dates";
 
 export default async function PreanaliticaControladosPage() {
@@ -29,7 +29,7 @@ export default async function PreanaliticaControladosPage() {
             <table className="w-full border-collapse text-[12px]">
               <thead>
                 <tr className="bg-gy50">
-                  {["ID", "Personal", "Veterinaria", "Muestras", "Control 1", "Control 2", "Responsable", "Hora"].map((h) => (
+                  {["ID", "Personal", "Veterinaria", "Muestras", "Etiquetas", "Responsable", "Hora"].map((h) => (
                     <th key={h} className="px-3.5 py-2.5 text-left text-[10px] font-bold uppercase tracking-wide text-gy400 border-b border-gy200">{h}</th>
                   ))}
                 </tr>
@@ -43,15 +43,14 @@ export default async function PreanaliticaControladosPage() {
                       <td className="px-3.5 py-2.5 font-medium">{r?.personal?.nombre ?? "—"}</td>
                       <td className="px-3.5 py-2.5">{r?.veterinaria_texto_original}</td>
                       <td className="px-3.5 py-2.5 text-center font-semibold">{r?.cantidad_muestras}</td>
-                      <td className="px-3.5 py-2.5"><PillStatus variant={c.control_1 === "ok" ? "ok" : "pendiente"} label={c.control_1 ?? "—"} /></td>
-                      <td className="px-3.5 py-2.5"><PillStatus variant={c.control_2 === "ok" ? "ok" : "pendiente"} label={c.control_2 ?? "—"} /></td>
+                      <td className="px-3.5 py-2.5"><EtiquetasChips etiquetas={c.etiquetas} /></td>
                       <td className="px-3.5 py-2.5 text-gy600">Responsable</td>
                       <td className="px-3.5 py-2.5 text-gy600">{formatDateTime(c.updated_at)}</td>
                     </tr>
                   );
                 })}
                 {!controles?.length && (
-                  <tr><td colSpan={8} className="py-10 text-center text-gy400">Sin registros controlados hoy</td></tr>
+                  <tr><td colSpan={7} className="py-10 text-center text-gy400">Sin registros controlados hoy</td></tr>
                 )}
               </tbody>
             </table>

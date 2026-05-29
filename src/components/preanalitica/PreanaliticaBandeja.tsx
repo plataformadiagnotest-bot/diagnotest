@@ -19,15 +19,27 @@ const esUrgente = (c: AnyRecord) => c.urgente || c.retiro?.urgente;
 
 export function PreanaliticaBandeja({ controles }: { controles: AnyRecord[] }) {
   const [filtro, setFiltro] = useState<Filtro>("personal");
+  const [busqueda, setBusqueda] = useState("");
+
+  // Filtra por texto en cadete / veterinaria / código.
+  const filtrados = useMemo(() => {
+    const q = busqueda.trim().toLowerCase();
+    if (!q) return controles;
+    return controles.filter((c) => {
+      const r = c.retiro ?? {};
+      return [r.personal?.nombre, r.veterinaria_texto_original, r.codigo_original]
+        .some((v) => String(v ?? "").toLowerCase().includes(q));
+    });
+  }, [controles, busqueda]);
 
   // Lista plana ordenada (para "Todos" y "Urgentes primero").
   const planos = useMemo(() => {
-    const arr = [...controles];
+    const arr = [...filtrados];
     if (filtro === "urgentes") {
       arr.sort((a, b) => Number(esUrgente(b)) - Number(esUrgente(a)));
     }
     return arr;
-  }, [controles, filtro]);
+  }, [filtrados, filtro]);
 
   // Agrupación (para "Por personal" y "Por veterinaria").
   const grupos = useMemo(() => {
@@ -37,27 +49,41 @@ export function PreanaliticaBandeja({ controles }: { controles: AnyRecord[] }) {
         ? c.retiro?.personal?.nombre ?? "Sin asignar"
         : c.retiro?.veterinaria_texto_original ?? "Sin veterinaria";
     const map = new Map<string, AnyRecord[]>();
-    for (const c of controles) {
+    for (const c of filtrados) {
       const k = key(c);
       if (!map.has(k)) map.set(k, []);
       map.get(k)!.push(c);
     }
     return Array.from(map.entries()).sort((a, b) => a[0].localeCompare(b[0], "es"));
-  }, [controles, filtro]);
+  }, [filtrados, filtro]);
 
   return (
     <div className="space-y-4">
-      <div className="flex gap-1.5 flex-wrap">
-        {FILTROS.map((f) => (
-          <button key={f.id} onClick={() => setFiltro(f.id)}
-            className={`px-3 py-1.5 rounded-full border text-[11px] transition-all ${filtro === f.id ? "bg-g800 text-white border-g800" : "bg-white text-gy600 border-gy200 hover:border-g400 hover:text-g700"}`}>
-            {f.label}
-          </button>
-        ))}
+      <div className="flex items-center gap-2 flex-wrap">
+        <div className="relative flex-1 min-w-[220px] max-w-[360px]">
+          <i className="ti ti-search absolute left-3 top-1/2 -translate-y-1/2 text-gy400 text-[14px]" />
+          <input
+            type="text"
+            value={busqueda}
+            onChange={(e) => setBusqueda(e.target.value)}
+            placeholder="Buscar por cadete, veterinaria o código…"
+            className="w-full pl-8 pr-3 py-1.5 border-2 border-gy200 rounded-[8px] text-[12px] bg-gy50 focus:outline-none focus:border-g500 focus:bg-white"
+          />
+        </div>
+        <div className="flex gap-1.5 flex-wrap">
+          {FILTROS.map((f) => (
+            <button key={f.id} onClick={() => setFiltro(f.id)}
+              className={`px-3 py-1.5 rounded-full border text-[11px] transition-all ${filtro === f.id ? "bg-g800 text-white border-g800" : "bg-white text-gy600 border-gy200 hover:border-g400 hover:text-g700"}`}>
+              {f.label}
+            </button>
+          ))}
+        </div>
       </div>
 
-      {!controles.length && (
-        <div className="py-12 text-center text-gy400">Sin retiros pendientes de control</div>
+      {!filtrados.length && (
+        <div className="py-12 text-center text-gy400">
+          {busqueda.trim() ? "Sin resultados para la búsqueda" : "Sin retiros pendientes de control"}
+        </div>
       )}
 
       {grupos

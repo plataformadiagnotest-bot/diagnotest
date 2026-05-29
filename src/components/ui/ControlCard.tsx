@@ -42,8 +42,6 @@ export function ControlCard({ control, tipo }: Props) {
   const personal = retiro?.personal as AnyRecord;
   const isUrgente = control.urgente || retiro?.urgente;
 
-  const [ctrl1, setCtrl1] = useState(control.control_1 ?? "");
-  const [ctrl2, setCtrl2] = useState(control.control_2 ?? "");
   const [estado, setEstado] = useState(control.estado ?? "pendiente");
   const [detalle, setDetalle] = useState(control.detalle ?? "");
   const [etiquetas, setEtiquetas] = useState<string[]>(control.etiquetas ?? []);
@@ -64,8 +62,6 @@ export function ControlCard({ control, tipo }: Props) {
     };
 
     if (tipo === "pre") {
-      updateData.control_1 = ctrl1;
-      updateData.control_2 = ctrl2;
       updateData.etiquetas = etiquetas;
     } else {
       updateData.importe_validado = parseFloat(String(importeValidado)) || 0;
@@ -116,71 +112,36 @@ export function ControlCard({ control, tipo }: Props) {
           )}
         </div>
 
-        {/* Controls */}
-        <div className="grid grid-cols-3 gap-2.5 mb-3">
-          {tipo === "pre" ? (
-            <>
-              <div>
-                <div className="text-[10px] font-semibold uppercase tracking-wide text-gy400 mb-1">Control 1</div>
-                <select className="w-full px-2.5 py-1.5 border-2 border-gy200 rounded-[6px] text-[12px] bg-gy50 focus:outline-none focus:border-g500"
-                  value={ctrl1} onChange={(e) => setCtrl1(e.target.value)}>
-                  <option value="">— Seleccionar —</option>
-                  <option value="ok">OK</option>
-                  <option value="observar">Observar</option>
-                  <option value="rechazar">Rechazar</option>
-                </select>
-              </div>
-              <div>
-                <div className="text-[10px] font-semibold uppercase tracking-wide text-gy400 mb-1">Control 2</div>
-                <select className="w-full px-2.5 py-1.5 border-2 border-gy200 rounded-[6px] text-[12px] bg-gy50 focus:outline-none focus:border-g500"
-                  value={ctrl2} onChange={(e) => setCtrl2(e.target.value)}>
-                  <option value="">— Seleccionar —</option>
-                  <option value="ok">OK</option>
-                  <option value="observar">Observar</option>
-                  <option value="rechazar">Rechazar</option>
-                </select>
-              </div>
-              <div>
-                <div className="text-[10px] font-semibold uppercase tracking-wide text-gy400 mb-1">Estado</div>
-                <select className="w-full px-2.5 py-1.5 border-2 border-gy200 rounded-[6px] text-[12px] bg-gy50 focus:outline-none focus:border-g500"
-                  value={estado} onChange={(e) => setEstado(e.target.value)}>
-                  <option value="pendiente">Pendiente</option>
-                  <option value="ok">Controlado OK</option>
-                  <option value="observado">Observado</option>
-                  <option value="rechazado">Rechazado</option>
-                </select>
-              </div>
-            </>
-          ) : (
-            <>
-              <div>
-                <div className="text-[10px] font-semibold uppercase tracking-wide text-gy400 mb-1">Importe validado</div>
-                <input type="number" step="0.01"
-                  className="w-full px-2.5 py-1.5 border-2 border-gy200 rounded-[6px] text-[12px] bg-gy50 focus:outline-none focus:border-g500"
-                  value={importeValidado} onChange={(e) => setImporteValidado(e.target.value)} />
-              </div>
-              <div>
-                <div className="text-[10px] font-semibold uppercase tracking-wide text-gy400 mb-1">Medio de pago</div>
-                <select className="w-full px-2.5 py-1.5 border-2 border-gy200 rounded-[6px] text-[12px] bg-gy50 focus:outline-none focus:border-g500"
-                  value={medioPago} onChange={(e) => setMedioPago(e.target.value)}>
-                  <option value="efectivo">Efectivo</option>
-                  <option value="transferencia">Transferencia</option>
-                  <option value="mercadopago">Mercado Pago</option>
-                </select>
-              </div>
-              <div>
-                <div className="text-[10px] font-semibold uppercase tracking-wide text-gy400 mb-1">Estado</div>
-                <select className="w-full px-2.5 py-1.5 border-2 border-gy200 rounded-[6px] text-[12px] bg-gy50 focus:outline-none focus:border-g500"
-                  value={estado} onChange={(e) => setEstado(e.target.value)}>
-                  <option value="pendiente">Pendiente</option>
-                  <option value="adjudicado">Adjudicado</option>
-                  <option value="diferencia">Diferencia</option>
-                  <option value="no_corresponde">No corresponde</option>
-                </select>
-              </div>
-            </>
-          )}
-        </div>
+        {/* Controls (solo cobranzas) */}
+        {tipo === "cob" && (
+          <div className="grid grid-cols-3 gap-2.5 mb-3">
+            <div>
+              <div className="text-[10px] font-semibold uppercase tracking-wide text-gy400 mb-1">Importe validado</div>
+              <input type="number" step="0.01"
+                className="w-full px-2.5 py-1.5 border-2 border-gy200 rounded-[6px] text-[12px] bg-gy50 focus:outline-none focus:border-g500"
+                value={importeValidado} onChange={(e) => setImporteValidado(e.target.value)} />
+            </div>
+            <div>
+              <div className="text-[10px] font-semibold uppercase tracking-wide text-gy400 mb-1">Medio de pago</div>
+              <select className="w-full px-2.5 py-1.5 border-2 border-gy200 rounded-[6px] text-[12px] bg-gy50 focus:outline-none focus:border-g500"
+                value={medioPago} onChange={(e) => setMedioPago(e.target.value)}>
+                <option value="efectivo">Efectivo</option>
+                <option value="transferencia">Transferencia</option>
+                <option value="mercadopago">Mercado Pago</option>
+              </select>
+            </div>
+            <div>
+              <div className="text-[10px] font-semibold uppercase tracking-wide text-gy400 mb-1">Estado</div>
+              <select className="w-full px-2.5 py-1.5 border-2 border-gy200 rounded-[6px] text-[12px] bg-gy50 focus:outline-none focus:border-g500"
+                value={estado} onChange={(e) => setEstado(e.target.value)}>
+                <option value="pendiente">Pendiente</option>
+                <option value="adjudicado">Adjudicado</option>
+                <option value="diferencia">Diferencia</option>
+                <option value="no_corresponde">No corresponde</option>
+              </select>
+            </div>
+          </div>
+        )}
 
         {tipo === "pre" && (
           <div className="mb-3">
