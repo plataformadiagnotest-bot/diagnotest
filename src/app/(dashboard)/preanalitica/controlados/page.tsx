@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { Topbar } from "@/components/layout/Topbar";
 import { EtiquetasChips } from "@/components/preanalitica/EtiquetasChips";
 import { ControlValor } from "@/components/preanalitica/ControlValor";
@@ -14,6 +15,14 @@ export default async function PreanaliticaControladosPage() {
     .eq("estado", "ok")
     .gte("updated_at", today + "T00:00:00Z")
     .order("updated_at", { ascending: false });
+
+  // Resolver nombres de los responsables (RLS de profiles no deja leer otros perfiles).
+  const respIds = Array.from(new Set((controles ?? []).map((c) => c.responsable_id).filter(Boolean)));
+  const nombrePorId = new Map<string, string>();
+  if (respIds.length) {
+    const { data: profs } = await createAdminClient().from("profiles").select("id, nombre").in("id", respIds);
+    for (const p of profs ?? []) nombrePorId.set(p.id, p.nombre);
+  }
 
   return (
     <div>
@@ -47,7 +56,7 @@ export default async function PreanaliticaControladosPage() {
                       <td className="px-3.5 py-2.5"><ControlValor valor={c.control_1} /></td>
                       <td className="px-3.5 py-2.5"><ControlValor valor={c.control_2} /></td>
                       <td className="px-3.5 py-2.5"><EtiquetasChips etiquetas={c.etiquetas} /></td>
-                      <td className="px-3.5 py-2.5 text-gy600">Responsable</td>
+                      <td className="px-3.5 py-2.5 text-gy600">{c.responsable_id ? (nombrePorId.get(c.responsable_id) ?? "—") : "—"}</td>
                       <td className="px-3.5 py-2.5 text-gy600">{formatDateTime(c.updated_at)}</td>
                     </tr>
                   );

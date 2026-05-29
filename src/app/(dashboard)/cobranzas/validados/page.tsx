@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { Topbar } from "@/components/layout/Topbar";
 import { PillStatus } from "@/components/ui/PillStatus";
 import { fmtMoneySign } from "@/lib/utils/format";
@@ -40,6 +41,14 @@ export default async function CobranzasValidadosPage({
           .some((v) => String(v ?? "").toLowerCase().includes(term));
       });
 
+  // Resolver nombres de los responsables (RLS de profiles no deja leer otros perfiles).
+  const respIds = Array.from(new Set(controles.map((c) => c.responsable_id).filter(Boolean)));
+  const nombrePorId = new Map<string, string>();
+  if (respIds.length) {
+    const { data: profs } = await createAdminClient().from("profiles").select("id, nombre").in("id", respIds);
+    for (const p of profs ?? []) nombrePorId.set(p.id, p.nombre);
+  }
+
   return (
     <div>
       <Topbar title="Cobranzas — Validados"
@@ -76,7 +85,7 @@ export default async function CobranzasValidadosPage({
             <table className="w-full border-collapse text-[12px]">
               <thead>
                 <tr className="bg-gy50">
-                  {["ID", "Fecha", "Personal", "Importe decl.", "Importe valid.", "Diferencia", "Medio", "Observación", "Estado"].map((h) => (
+                  {["ID", "Fecha", "Personal", "Importe decl.", "Importe valid.", "Diferencia", "Medio", "Observación", "Autorizado por", "Estado"].map((h) => (
                     <th key={h} className="px-3.5 py-2.5 text-left text-[10px] font-bold uppercase tracking-wide text-gy400 border-b border-gy200">{h}</th>
                   ))}
                 </tr>
@@ -97,12 +106,13 @@ export default async function CobranzasValidadosPage({
                       </td>
                       <td className="px-3.5 py-2.5">{METODO_PAGO_LABEL[r?.metodo_pago as string] ?? "—"}</td>
                       <td className="px-3.5 py-2.5 text-gy600 max-w-[200px] truncate" title={c.detalle ?? ""}>{c.detalle || "—"}</td>
+                      <td className="px-3.5 py-2.5 text-gy600">{c.responsable_id ? (nombrePorId.get(c.responsable_id) ?? "—") : "—"}</td>
                       <td className="px-3.5 py-2.5"><PillStatus variant="ok" label="Adjudicado" /></td>
                     </tr>
                   );
                 })}
                 {!controles?.length && (
-                  <tr><td colSpan={9} className="py-10 text-center text-gy400">Sin validaciones en el período</td></tr>
+                  <tr><td colSpan={10} className="py-10 text-center text-gy400">Sin validaciones en el período</td></tr>
                 )}
               </tbody>
             </table>

@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { createClient } from "@/lib/supabase/client";
 import { toast } from "@/components/ui/ToastNotification";
 import { PillStatus } from "@/components/ui/PillStatus";
 import { fmtMoneySign } from "@/lib/utils/format";
@@ -123,18 +122,23 @@ export function ControlCard({ control, tipo }: Props) {
       return;
     }
 
-    const supabase = createClient();
-    const { error } = await supabase.from("control_preanalitica").update({
-      estado: newEstado,
-      detalle: detalle || null,
-      control_1: ctrl1,
-      control_2: ctrl2,
-      etiquetas,
-    }).eq("id", control.id);
-    if (error) { toast("error", "Error al guardar"); setSaving(false); return; }
+    const res = await fetch("/api/preanalitica/validar", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        controlId: control.id,
+        estado: newEstado,
+        control1: ctrl1 || null,
+        control2: ctrl2 || null,
+        etiquetas,
+        detalle: detalle || null,
+      }),
+    });
+    const json = await res.json();
+    setSaving(false);
+    if (!res.ok) { toast("error", json.error ?? "Error al guardar"); return; }
     toast("success", "Control guardado ✓");
     router.refresh();
-    setSaving(false);
   }
 
   return (
