@@ -11,6 +11,13 @@ export interface UsuarioRow {
   email: string;
   rol: string;
   activo: boolean;
+  zona_base_id: string | null;
+  tipo: string | null;
+}
+
+export interface ZonaOption {
+  id: string;
+  nombre: string;
 }
 
 const ROLES: { value: string; label: string }[] = [
@@ -27,7 +34,7 @@ type Editing =
   | { mode: "editar"; user: UsuarioRow }
   | null;
 
-export function UsuariosManager({ usuarios }: { usuarios: UsuarioRow[] }) {
+export function UsuariosManager({ usuarios, zonas }: { usuarios: UsuarioRow[]; zonas: ZonaOption[] }) {
   const router = useRouter();
   const [editing, setEditing] = useState<Editing>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -99,6 +106,7 @@ export function UsuariosManager({ usuarios }: { usuarios: UsuarioRow[] }) {
       {editing && (
         <UsuarioModal
           editing={editing}
+          zonas={zonas}
           onClose={() => setEditing(null)}
           onSaved={() => { setEditing(null); router.refresh(); }}
         />
@@ -107,8 +115,9 @@ export function UsuariosManager({ usuarios }: { usuarios: UsuarioRow[] }) {
   );
 }
 
-function UsuarioModal({ editing, onClose, onSaved }: {
+function UsuarioModal({ editing, zonas, onClose, onSaved }: {
   editing: Exclude<Editing, null>;
+  zonas: ZonaOption[];
   onClose: () => void;
   onSaved: () => void;
 }) {
@@ -119,7 +128,11 @@ function UsuarioModal({ editing, onClose, onSaved }: {
   const [email, setEmail] = useState(user?.email ?? "");
   const [password, setPassword] = useState("");
   const [rol, setRol] = useState(user?.rol ?? "personal_logistica");
+  const [zonaId, setZonaId] = useState(user?.zona_base_id ?? "");
+  const [tipo, setTipo] = useState(user?.tipo ?? "fijo");
   const [saving, setSaving] = useState(false);
+
+  const esCadete = rol === "personal_logistica";
 
   async function guardar() {
     if (!nombre.trim()) { toast("error", "Ingresá el nombre"); return; }
@@ -127,14 +140,16 @@ function UsuarioModal({ editing, onClose, onSaved }: {
     if (esNuevo && password.length < 6) { toast("error", "La contraseña debe tener al menos 6 caracteres"); return; }
     if (!esNuevo && password.length > 0 && password.length < 6) { toast("error", "La nueva contraseña debe tener al menos 6 caracteres"); return; }
 
+    const cadeteFields = esCadete ? { zona_base_id: zonaId || null, tipo } : {};
+
     setSaving(true);
     const res = await fetch("/api/admin/usuarios", {
       method: esNuevo ? "POST" : "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(
         esNuevo
-          ? { nombre, email, password, rol }
-          : { id: user!.id, nombre, email, rol, ...(password ? { password } : {}) }
+          ? { nombre, email, password, rol, ...cadeteFields }
+          : { id: user!.id, nombre, email, rol, ...cadeteFields, ...(password ? { password } : {}) }
       ),
     });
     const json = await res.json();
@@ -176,6 +191,31 @@ function UsuarioModal({ editing, onClose, onSaved }: {
               {ROLES.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
             </select>
           </div>
+          {esCadete && (
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-[11px] font-semibold text-gy600 mb-1.5">Zona base</label>
+                <select className={inputCls} value={zonaId} onChange={(e) => setZonaId(e.target.value)}>
+                  <option value="">— Sin asignar —</option>
+                  {zonas.map((z) => <option key={z.id} value={z.id}>{z.nombre}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="block text-[11px] font-semibold text-gy600 mb-1.5">Tipo</label>
+                <select className={inputCls} value={tipo} onChange={(e) => setTipo(e.target.value)}>
+                  <option value="fijo">Fijo</option>
+                  <option value="reemplazo">Reemplazo</option>
+                  <option value="ventanilla">Ventanilla</option>
+                </select>
+              </div>
+            </div>
+          )}
+          {esCadete && (
+            <div className="flex items-start gap-1.5 text-[11px] text-g700 bg-g50 rounded-[8px] px-3 py-2">
+              <i className="ti ti-info-circle text-[14px] mt-0.5 shrink-0" />
+              Al ser &quot;Personal logística&quot; se crea automáticamente su ficha en el Maestro de Personal.
+            </div>
+          )}
         </div>
         <div className="px-5 py-4 border-t border-gy100 flex items-center justify-end gap-2">
           <button onClick={onClose} className="px-3.5 py-2 text-[13px] font-medium text-gy600 bg-white border border-gy200 rounded-[8px] hover:bg-gy50">

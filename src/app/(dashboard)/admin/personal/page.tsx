@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { Topbar } from "@/components/layout/Topbar";
 import { PillStatus } from "@/components/ui/PillStatus";
+import { CadetesSync } from "@/components/admin/CadetesSync";
 
 export default async function PersonalPage() {
   const supabase = await createClient();
@@ -14,11 +15,7 @@ export default async function PersonalPage() {
     <div>
       <Topbar
         title="Maestro de Personal"
-        actions={
-          <button className="flex items-center gap-1.5 px-3.5 py-2 bg-g800 text-white text-[12px] font-medium rounded-[6px] hover:bg-g700">
-            <i className="ti ti-plus" /> Nuevo personal
-          </button>
-        }
+        actions={<CadetesSync />}
       />
       <div className="p-6">
         <div className="bg-white rounded-[14px] border border-gy200 shadow-sm overflow-hidden">
