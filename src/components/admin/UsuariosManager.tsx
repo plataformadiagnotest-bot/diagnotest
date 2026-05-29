@@ -109,8 +109,8 @@ export function UsuariosManager({ usuarios, zonas }: { usuarios: UsuarioRow[]; z
                     </button>
                     <button onClick={() => eliminar(u)} disabled={busyId === u.id}
                       title="Eliminar usuario"
-                      className="px-2 py-1 text-[11px] bg-white border border-red-200 text-red-600 rounded-[6px] hover:bg-red-50 disabled:opacity-50 flex items-center gap-1">
-                      <i className="ti ti-trash text-[13px]" />
+                      className="px-2 py-1 text-[11px] font-medium bg-white border border-red-300 text-red-600 rounded-[6px] hover:bg-red-50 disabled:opacity-50 flex items-center gap-1">
+                      <i className="ti ti-trash text-[13px]" /> Eliminar
                     </button>
                   </div>
                 </td>

@@ -180,9 +180,26 @@ export async function DELETE(req: Request) {
 
   const admin = createAdminClient();
 
-  // Borramos primero las filas que dependen del profile, luego el usuario de auth.
+  // Ficha de personal asociada (si es cadete), para limpiar lo que la referencia.
+  const { data: ficha } = await admin.from("personal").select("id").eq("profile_id", id).maybeSingle();
+  const personalId = ficha?.id ?? null;
+
+  // 1) Borrar filas que tienen FK NOT NULL (RESTRICT) hacia este usuario o su ficha.
+  //    Las tablas de control (preanalítica/cobranzas) se borran en cascada vía retiros.
+  //    FASE DE PRUEBA: se elimina la data operativa del usuario sin recuperación.
+  await admin.from("retiros").delete().eq("created_by", id);
+  await admin.from("pedidos_retiro").delete().eq("creado_por_id", id);
+  await admin.from("auditoria").delete().eq("usuario_id", id);
+  if (personalId) {
+    await admin.from("retiros").delete().eq("personal_id", personalId);
+    await admin.from("pedidos_retiro").delete().eq("personal_asignado_id", personalId);
+    await admin.from("gastos").delete().eq("personal_id", personalId);
+  }
+
+  // 2) Borrar ficha de personal y profile, luego el usuario de auth.
   await admin.from("personal").delete().eq("profile_id", id);
-  await admin.from("profiles").delete().eq("id", id);
+  const { error: profileErr } = await admin.from("profiles").delete().eq("id", id);
+  if (profileErr) return NextResponse.json({ error: `No se pudo borrar el perfil: ${profileErr.message}` }, { status: 400 });
 
   const { error } = await admin.auth.admin.deleteUser(id);
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
