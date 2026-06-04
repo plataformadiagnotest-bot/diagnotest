@@ -25,11 +25,22 @@ export default async function InicioPage() {
   const personalId = personal?.id ?? "";
   const zonaNombre = (personal?.zona as { nombre?: string } | null)?.nombre ?? "Sin zona";
 
-  const { data: vets } = await supabase
-    .from("veterinarias")
-    .select("id, codigo, nombre, telefono, direccion")
-    .eq("activa", true)
-    .order("nombre");
+  // El API limita a 1000 filas por request; el maestro tiene >3000 veterinarias.
+  // Paginamos para traerlas todas (necesario además para el modo offline del cadete).
+  type VetRow = { id: string; codigo: string; nombre: string; telefono: string | null; direccion: string | null };
+  const vets: VetRow[] = [];
+  const PAGE = 1000;
+  for (let from = 0; ; from += PAGE) {
+    const { data, error } = await supabase
+      .from("veterinarias")
+      .select("id, codigo, nombre, telefono, direccion")
+      .eq("activa", true)
+      .order("nombre")
+      .range(from, from + PAGE - 1);
+    if (error || !data?.length) break;
+    vets.push(...(data as VetRow[]));
+    if (data.length < PAGE) break;
+  }
 
   let pedidos: PedidoMobile[] = [];
   if (personalId) {
