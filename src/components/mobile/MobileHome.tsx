@@ -70,7 +70,12 @@ export function MobileHome({ nombre, zonaNombre, personalId, profileId, veterina
 
   function matchVet(value: string) {
     setVetTexto(value);
-    const m = veterinarias.find((v) => v.nombre === value || v.codigo === value);
+    const val = value.trim();
+    const valLow = val.toLowerCase();
+    // Coincidencia por valor combinado "código — nombre", por código exacto o por nombre.
+    const m = veterinarias.find((v) => `${v.codigo} — ${v.nombre}` === val)
+      ?? veterinarias.find((v) => v.codigo.toLowerCase() === valLow)
+      ?? veterinarias.find((v) => v.nombre.toLowerCase() === valLow);
     if (m) { setVetId(m.id); setCodigo(m.codigo); } else { setVetId(null); }
   }
 
@@ -114,7 +119,7 @@ export function MobileHome({ nombre, zonaNombre, personalId, profileId, veterina
       fecha_operativa: todayISO(),
       personal_id: personalId,
       veterinaria_id: vetId,
-      veterinaria_texto_original: vetTexto,
+      veterinaria_texto_original: vetSel?.nombre ?? vetTexto,
       codigo_original: codigo || null,
       cantidad_muestras: parseInt(muestras) || 0,
       importe_declarado: parseFloat(importe) || 0,
@@ -266,10 +271,15 @@ export function MobileHome({ nombre, zonaNombre, personalId, profileId, veterina
               <input list="mob-vets" required className={inputCls} placeholder="Buscar por nombre o código..."
                 value={vetTexto} onChange={(e) => matchVet(e.target.value)} />
               <datalist id="mob-vets">
-                {veterinarias.map((v) => <option key={v.id} value={v.nombre}>{v.codigo}</option>)}
+                {veterinarias.map((v) => <option key={v.id} value={`${v.codigo} — ${v.nombre}`} />)}
               </datalist>
-              {vetSel && (vetSel.telefono || vetSel.direccion) && (
+              {vetSel && (
                 <div className="mt-2 flex flex-col gap-1.5 bg-g50 border border-g200 rounded-[10px] px-3 py-2.5">
+                  <div className="flex items-center gap-2 text-[13px] font-semibold text-gy900">
+                    <i className="ti ti-building-store text-[15px] text-g600" />
+                    <span className="flex-1">{vetSel.nombre}</span>
+                    <span className="font-mono text-[11px] text-gy500">{vetSel.codigo}</span>
+                  </div>
                   {vetSel.telefono && (
                     <a href={`tel:${vetSel.telefono.replace(/\s+/g, "")}`}
                       className="flex items-center gap-2 text-[13px] font-semibold text-g700">
