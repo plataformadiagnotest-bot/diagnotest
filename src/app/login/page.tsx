@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
+import { landingPathForRole } from "@/lib/utils/roles";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -43,8 +44,8 @@ export default function LoginPage() {
       return;
     }
 
-    // Personal de logística: experiencia 100% mobile
-    router.push(profile.rol === "personal_logistica" ? "/inicio" : "/dashboard");
+    // Cada rol aterriza en su propia página (el Dashboard es solo de dirección)
+    router.replace(landingPathForRole(profile.rol));
   }
 
   return (

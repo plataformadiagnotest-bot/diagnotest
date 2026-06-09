@@ -1,10 +1,18 @@
+import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { Topbar } from "@/components/layout/Topbar";
 import { StatCard } from "@/components/ui/StatCard";
 import { fmtMoneySign, fmtMoney } from "@/lib/utils/format";
+import { esDireccion, landingPathForRole } from "@/lib/utils/roles";
 
 export default async function DashboardPage() {
   const supabase = await createClient();
+
+  // El Dashboard Operativo es exclusivo de dirección; otros roles van a su landing.
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) redirect("/login");
+  const { data: rolRow } = await supabase.from("profiles").select("rol").eq("id", user.id).single();
+  if (!esDireccion(rolRow?.rol)) redirect(landingPathForRole(rolRow?.rol));
 
   const today = new Date().toISOString().split("T")[0];
   const firstDayMonth = today.slice(0, 7) + "-01";
