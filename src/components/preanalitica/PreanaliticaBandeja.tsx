@@ -6,13 +6,14 @@ import { ControlCard } from "@/components/ui/ControlCard";
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyRecord = Record<string, any>;
 
-type Filtro = "personal" | "todos" | "urgentes" | "veterinaria";
+type Filtro = "personal" | "todos" | "urgentes" | "veterinaria" | "observados";
 
 const FILTROS: { id: Filtro; label: string }[] = [
   { id: "personal", label: "Por personal" },
   { id: "todos", label: "Todos" },
   { id: "urgentes", label: "Urgentes primero" },
   { id: "veterinaria", label: "Por veterinaria" },
+  { id: "observados", label: "Observados" },
 ];
 
 const esUrgente = (c: AnyRecord) => c.urgente || c.retiro?.urgente;
@@ -21,16 +22,20 @@ export function PreanaliticaBandeja({ controles }: { controles: AnyRecord[] }) {
   const [filtro, setFiltro] = useState<Filtro>("personal");
   const [busqueda, setBusqueda] = useState("");
 
-  // Filtra por texto en cadete / veterinaria / código.
+  const observadosCount = useMemo(() => controles.filter((c) => c.estado === "observado").length, [controles]);
+
+  // Filtra por texto en cadete / veterinaria / código (y por estado observado).
   const filtrados = useMemo(() => {
     const q = busqueda.trim().toLowerCase();
-    if (!q) return controles;
-    return controles.filter((c) => {
+    let base = controles;
+    if (filtro === "observados") base = base.filter((c) => c.estado === "observado");
+    if (!q) return base;
+    return base.filter((c) => {
       const r = c.retiro ?? {};
       return [r.personal?.nombre, r.veterinaria_texto_original, r.codigo_original]
         .some((v) => String(v ?? "").toLowerCase().includes(q));
     });
-  }, [controles, busqueda]);
+  }, [controles, busqueda, filtro]);
 
   // Lista plana ordenada (para "Todos" y "Urgentes primero").
   const planos = useMemo(() => {
@@ -75,6 +80,9 @@ export function PreanaliticaBandeja({ controles }: { controles: AnyRecord[] }) {
             <button key={f.id} onClick={() => setFiltro(f.id)}
               className={`px-3 py-1.5 rounded-full border text-[11px] transition-all ${filtro === f.id ? "bg-g800 text-white border-g800" : "bg-white text-gy600 border-gy200 hover:border-g400 hover:text-g700"}`}>
               {f.label}
+              {f.id === "observados" && observadosCount > 0 && (
+                <span className={`ml-1.5 text-[9px] font-bold rounded-full px-1.5 py-0.5 ${filtro === f.id ? "bg-white/20 text-white" : "bg-amber-bg text-amber-text"}`}>{observadosCount}</span>
+              )}
             </button>
           ))}
         </div>

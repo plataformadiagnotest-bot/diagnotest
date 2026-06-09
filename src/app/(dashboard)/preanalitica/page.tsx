@@ -16,7 +16,7 @@ export default async function PreanaliticaPage() {
         personal:personal_id(nombre)
       )
     `)
-    .eq("estado", "pendiente")
+    .in("estado", ["pendiente", "observado"])
     .order("created_at", { ascending: true });
 
   const today = new Date().toISOString().split("T")[0];
@@ -34,7 +34,7 @@ export default async function PreanaliticaPage() {
       .in("estado", ["observado", "rechazado"]),
   ]);
 
-  const pendientes = controles?.length ?? 0;
+  const pendientes = controles?.filter((c) => c.estado === "pendiente").length ?? 0;
   const urgentes = controles?.filter((c) => c.urgente || (c.retiro as { urgente?: boolean } | null)?.urgente).length ?? 0;
 
   return (

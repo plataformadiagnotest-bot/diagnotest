@@ -57,6 +57,18 @@ export function ControlCard({ control, tipo }: Props) {
   const [importeValidado, setImporteValidado] = useState(control.importe_validado ?? retiro?.importe_declarado ?? "");
   const [saving, setSaving] = useState(false);
 
+  // Muestras editables (solo preanalítica) con confirmación.
+  const [muestras, setMuestras] = useState(String(retiro?.cantidad_muestras ?? ""));
+  const [savingMuestras, setSavingMuestras] = useState(false);
+  const yaObservado = control.estado === "observado";
+
+  // Automatización de estado sugerido a partir de los controles.
+  const sugerido = ctrl1 === "observar" || ctrl2 === "observar"
+    ? "observado"
+    : ctrl1 === "ok" && ctrl2 === "ok"
+      ? "ok"
+      : null;
+
   // Datos de preanalítica (control 1:1 vía retiro) — solo lectura para cobranzas.
   const pre = (Array.isArray(retiro?.control_preanalitica) ? retiro?.control_preanalitica[0] : retiro?.control_preanalitica) as AnyRecord | undefined;
   const preEtiquetas: string[] = pre?.etiquetas ?? [];
@@ -99,7 +111,35 @@ export function ControlCard({ control, tipo }: Props) {
     }
   }
 
+  async function guardarMuestras() {
+    const nueva = parseInt(muestras, 10);
+    const actual = retiro?.cantidad_muestras ?? null;
+    if (muestras.trim() === "" || isNaN(nueva) || nueva === actual) {
+      setMuestras(String(actual ?? "")); // revertir si quedó vacío/igual
+      return;
+    }
+    if (!window.confirm(`¿Confirmás cambiar la cantidad de muestras de ${actual ?? "—"} a ${nueva}?\n\nEl cambio queda registrado en auditoría.`)) {
+      setMuestras(String(actual ?? ""));
+      return;
+    }
+    setSavingMuestras(true);
+    const res = await fetch("/api/retiros/muestras", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ retiroId: retiro?.id, cantidad: nueva }),
+    });
+    const json = await res.json();
+    setSavingMuestras(false);
+    if (!res.ok) { toast("error", json.error ?? "No se pudo guardar"); setMuestras(String(actual ?? "")); return; }
+    if (retiro) retiro.cantidad_muestras = nueva;
+    toast("success", "Cantidad de muestras actualizada ✓");
+  }
+
   async function save(newEstado: string) {
+    // Automatización: si los controles indican observación pero se fuerza "ok", avisar.
+    if (tipo === "pre" && newEstado === "ok" && sugerido === "observado") {
+      if (!window.confirm("Hay un control marcado como OBSERVAR.\n\n¿Seguro que querés forzar el estado a «Controlado OK»?")) return;
+    }
     setSaving(true);
 
     if (tipo === "cob") {
@@ -174,6 +214,11 @@ export function ControlCard({ control, tipo }: Props) {
             <i className="ti ti-photo text-[13px]" /> Ver ticket
           </a>
         )}
+        {tipo === "pre" && yaObservado && (
+          <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-amber-text bg-amber-bg border border-amber/40 rounded-full px-2 py-0.5">
+            <i className="ti ti-flag-2" /> Observado · pendiente
+          </span>
+        )}
         {isUrgente && <PillStatus variant="urgente" />}
       </div>
 
@@ -184,9 +229,18 @@ export function ControlCard({ control, tipo }: Props) {
             <div className="text-[9px] uppercase tracking-wide text-gy400 font-semibold mb-0.5">
               {tipo === "pre" ? "Muestras" : "Importe decl."}
             </div>
-            <div className="text-[22px] font-bold text-g700">
-              {tipo === "pre" ? retiro?.cantidad_muestras : fmtMoneySign(retiro?.importe_declarado ?? 0)}
-            </div>
+            {tipo === "pre" ? (
+              <input type="number" inputMode="numeric" min="0"
+                value={muestras} disabled={savingMuestras}
+                onChange={(e) => setMuestras(e.target.value)}
+                onFocus={(e) => e.target.select()}
+                onBlur={guardarMuestras}
+                onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
+                title="Editá la cantidad y confirmá el cambio"
+                className="w-20 px-2 py-0.5 text-[22px] font-bold text-g700 bg-white border border-gy200 rounded-[6px] focus:outline-none focus:border-g500 disabled:opacity-50" />
+            ) : (
+              <div className="text-[22px] font-bold text-g700">{fmtMoneySign(retiro?.importe_declarado ?? 0)}</div>
+            )}
           </div>
           <div>
             <div className="text-[9px] uppercase tracking-wide text-gy400 font-semibold mb-0.5">Cadete</div>
@@ -210,7 +264,6 @@ export function ControlCard({ control, tipo }: Props) {
                 <option value="">— Seleccionar —</option>
                 <option value="ok">OK</option>
                 <option value="observar">Observar</option>
-                <option value="rechazar">Rechazar</option>
               </select>
             </div>
             <div>
@@ -220,7 +273,6 @@ export function ControlCard({ control, tipo }: Props) {
                 <option value="">— Seleccionar —</option>
                 <option value="ok">OK</option>
                 <option value="observar">Observar</option>
-                <option value="rechazar">Rechazar</option>
               </select>
             </div>
             <div>
@@ -230,7 +282,6 @@ export function ControlCard({ control, tipo }: Props) {
                 <option value="pendiente">Pendiente</option>
                 <option value="ok">Controlado OK</option>
                 <option value="observado">Observado</option>
-                <option value="rechazado">Rechazado</option>
               </select>
             </div>
           </div>
@@ -311,6 +362,12 @@ export function ControlCard({ control, tipo }: Props) {
             value={detalle} onChange={(e) => setDetalle(e.target.value)} />
         </div>
 
+        {tipo === "pre" && sugerido && (
+          <div className={`mb-2 inline-flex items-center gap-1.5 text-[11px] font-medium px-2.5 py-1 rounded-full border ${sugerido === "ok" ? "bg-g50 text-g700 border-g200" : "bg-amber-bg text-amber-text border-amber/40"}`}>
+            <i className={`ti ${sugerido === "ok" ? "ti-circle-check" : "ti-alert-triangle"} text-[13px]`} />
+            Estado sugerido: {sugerido === "ok" ? "Controlado OK" : "Observado"}
+          </div>
+        )}
         <div className="flex items-center gap-2 flex-wrap">
           <button onClick={() => save(tipo === "pre" ? "ok" : "adjudicado")} disabled={saving}
             className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-medium bg-g50 text-g700 border border-g200 rounded-[6px] hover:bg-g100 disabled:opacity-50">
@@ -321,11 +378,12 @@ export function ControlCard({ control, tipo }: Props) {
             className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-medium bg-amber-bg text-amber-text border border-amber/40 rounded-[6px] hover:bg-amber/10 disabled:opacity-50">
             <i className="ti ti-eye text-[13px]" /> Observar
           </button>
-          <button onClick={() => save(tipo === "pre" ? "rechazado" : "diferencia")} disabled={saving}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-medium bg-red-50 text-red-700 border border-red-200 rounded-[6px] hover:bg-red-100 disabled:opacity-50">
-            <i className="ti ti-x text-[13px]" />
-            {tipo === "pre" ? "Rechazar" : "Diferencia"}
-          </button>
+          {tipo === "cob" && (
+            <button onClick={() => save("diferencia")} disabled={saving}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-medium bg-red-50 text-red-700 border border-red-200 rounded-[6px] hover:bg-red-100 disabled:opacity-50">
+              <i className="ti ti-x text-[13px]" /> Diferencia
+            </button>
+          )}
           <span className="ml-auto text-[10px] text-gy400">
             {new Date().toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" })}
           </span>
