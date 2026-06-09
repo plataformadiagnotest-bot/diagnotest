@@ -39,7 +39,6 @@ export function MobileHome({ nombre, zonaNombre, personalId, profileId, veterina
   const [muestras, setMuestras] = useState("");
   const [importe, setImporte] = useState("0");
   const [metodoPago, setMetodoPago] = useState<MetodoPago | "">("");
-  const [motivo, setMotivo] = useState("");
   const [comentarios, setComentarios] = useState("");
   const [urgente, setUrgente] = useState(false);
   const [pedidoId, setPedidoId] = useState<string | null>(null);
@@ -93,7 +92,7 @@ export function MobileHome({ nombre, zonaNombre, personalId, profileId, veterina
 
   function resetRetiro() {
     setVetTexto(""); setVetId(null); setCodigo("");
-    setMuestras(""); setImporte("0"); setMetodoPago(""); setMotivo(""); setComentarios("");
+    setMuestras(""); setImporte("0"); setMetodoPago(""); setComentarios("");
     setUrgente(false); setPedidoId(null); setFotoRetiro(null);
     if (fotoRetiroInput.current) fotoRetiroInput.current.value = "";
   }
@@ -126,7 +125,7 @@ export function MobileHome({ nombre, zonaNombre, personalId, profileId, veterina
       importe_declarado: parseFloat(importe) || 0,
       metodo_pago: hayPago ? (metodoPago as MetodoPago) : null,
       comprobante_url: comprobanteUrl,
-      comentarios: [motivo ? `Motivo: ${motivo}` : "", comentarios.trim()].filter(Boolean).join(" — ") || null,
+      comentarios: comentarios.trim() || null,
       tipo: "veterinaria" as const,
       urgente,
       estado: "registrado" as const,
@@ -329,15 +328,6 @@ export function MobileHome({ nombre, zonaNombre, personalId, profileId, veterina
               </div>
             )}
             <div>
-              <label className="block text-[11px] font-semibold text-gy600 mb-1.5">Motivo</label>
-              <select className={inputCls} value={motivo} onChange={(e) => setMotivo(e.target.value)}>
-                <option value="">Sin motivo especial</option>
-                {["Zona extra", "Reemplazo", "Honorarios"].map((m) => (
-                  <option key={m} value={m}>{m}</option>
-                ))}
-              </select>
-            </div>
-            <div>
               <label className="block text-[11px] font-semibold text-gy600 mb-1.5">Comentarios</label>
               <input className={inputCls} placeholder="Opcional..." value={comentarios} onChange={(e) => setComentarios(e.target.value)} />
             </div>
@@ -410,7 +400,7 @@ export function MobileHome({ nombre, zonaNombre, personalId, profileId, veterina
               <label className="block text-[11px] font-semibold text-gy600 mb-1.5">Tipo</label>
               <div className="flex gap-2">
                 {([["gasto", "Gasto"], ["retiro_dinero", "Retiro $"]] as ["gasto" | "retiro_dinero", string][]).map(([val, label]) => (
-                  <button key={val} type="button" onClick={() => setGTipo(val)}
+                  <button key={val} type="button" onClick={() => { setGTipo(val); setGDesc(""); }}
                     className={`flex-1 py-2.5 rounded-[10px] border-2 text-[13px] font-medium transition-all ${gTipo === val ? "bg-purple-600 text-white border-purple-600" : "bg-white text-gy600 border-gy200"}`}>
                     {label}
                   </button>
@@ -421,7 +411,10 @@ export function MobileHome({ nombre, zonaNombre, personalId, profileId, veterina
               <label className="block text-[11px] font-semibold text-gy600 mb-1.5">Concepto <span className="text-red-500">*</span></label>
               <select className={inputCls} value={gDesc} onChange={(e) => setGDesc(e.target.value)}>
                 <option value="">Seleccioná un concepto…</option>
-                {["Peaje", "Nafta", "Estacionamiento", "Bebida"].map((c) => (
+                {(gTipo === "retiro_dinero"
+                  ? ["Zona extra", "Reemplazo", "Honorarios"]
+                  : ["Peaje", "Nafta", "Estacionamiento", "Bebida"]
+                ).map((c) => (
                   <option key={c} value={c}>{c}</option>
                 ))}
               </select>
