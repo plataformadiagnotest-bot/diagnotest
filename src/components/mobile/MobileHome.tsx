@@ -37,8 +37,9 @@ export function MobileHome({ nombre, zonaNombre, personalId, profileId, veterina
   const [vetId, setVetId] = useState<string | null>(null);
   const [codigo, setCodigo] = useState("");
   const [muestras, setMuestras] = useState("");
-  const [importe, setImporte] = useState("");
+  const [importe, setImporte] = useState("0");
   const [metodoPago, setMetodoPago] = useState<MetodoPago | "">("");
+  const [motivo, setMotivo] = useState("");
   const [comentarios, setComentarios] = useState("");
   const [urgente, setUrgente] = useState(false);
   const [pedidoId, setPedidoId] = useState<string | null>(null);
@@ -92,7 +93,7 @@ export function MobileHome({ nombre, zonaNombre, personalId, profileId, veterina
 
   function resetRetiro() {
     setVetTexto(""); setVetId(null); setCodigo("");
-    setMuestras(""); setImporte(""); setMetodoPago(""); setComentarios("");
+    setMuestras(""); setImporte("0"); setMetodoPago(""); setMotivo(""); setComentarios("");
     setUrgente(false); setPedidoId(null); setFotoRetiro(null);
     if (fotoRetiroInput.current) fotoRetiroInput.current.value = "";
   }
@@ -125,7 +126,7 @@ export function MobileHome({ nombre, zonaNombre, personalId, profileId, veterina
       importe_declarado: parseFloat(importe) || 0,
       metodo_pago: hayPago ? (metodoPago as MetodoPago) : null,
       comprobante_url: comprobanteUrl,
-      comentarios: comentarios || null,
+      comentarios: [motivo ? `Motivo: ${motivo}` : "", comentarios.trim()].filter(Boolean).join(" — ") || null,
       tipo: "veterinaria" as const,
       urgente,
       estado: "registrado" as const,
@@ -163,7 +164,7 @@ export function MobileHome({ nombre, zonaNombre, personalId, profileId, veterina
 
   async function guardarGasto() {
     if (!personalId) { toast("error", "No se encontró tu perfil de personal"); return; }
-    if (!gDesc.trim()) { toast("error", "Indicá una descripción"); return; }
+    if (!gDesc.trim()) { toast("error", "Seleccioná un concepto"); return; }
     setSavingGasto(true);
 
     let comprobanteUrl: string | null = null;
@@ -297,17 +298,22 @@ export function MobileHome({ nombre, zonaNombre, personalId, profileId, veterina
                 </div>
               )}
             </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block text-[11px] font-semibold text-gy600 mb-1.5">Muestras <span className="text-red-500">*</span></label>
-                <input type="number" inputMode="numeric" min="0" required className={`${inputCls} ${bigCls}`} placeholder="0"
-                  value={muestras} onChange={(e) => setMuestras(e.target.value)} />
-              </div>
-              <div>
-                <label className="block text-[11px] font-semibold text-gy600 mb-1.5">Importe $ <span className="text-red-500">*</span></label>
-                <input type="number" inputMode="decimal" min="0" required className={`${inputCls} ${bigCls}`} placeholder="0"
+            <div>
+              <label className="block text-[11px] font-semibold text-gy600 mb-1.5">Muestras <span className="text-red-500">*</span></label>
+              <input type="number" inputMode="numeric" min="0" required className={`${inputCls} ${bigCls}`} placeholder="0"
+                onFocus={(e) => e.target.select()}
+                value={muestras} onChange={(e) => setMuestras(e.target.value)} />
+            </div>
+            <div>
+              <label className="block text-[11px] font-semibold text-gy600 mb-1.5">Importe cobrado <span className="text-red-500">*</span></label>
+              <div className="relative">
+                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-[22px] font-bold text-g700 pointer-events-none">$</span>
+                <input type="number" inputMode="decimal" min="0" required
+                  className={`${inputCls} ${bigCls} pl-9 border-g500 bg-white`} placeholder="0"
+                  onFocus={(e) => e.target.select()}
                   value={importe} onChange={(e) => setImporte(e.target.value)} />
               </div>
+              <div className="text-[10px] text-gy400 mt-1">Si no cobraste, dejá en <span className="font-semibold">0</span>.</div>
             </div>
             {parseFloat(importe) > 0 && (
               <div>
@@ -322,6 +328,15 @@ export function MobileHome({ nombre, zonaNombre, personalId, profileId, veterina
                 </div>
               </div>
             )}
+            <div>
+              <label className="block text-[11px] font-semibold text-gy600 mb-1.5">Motivo</label>
+              <select className={inputCls} value={motivo} onChange={(e) => setMotivo(e.target.value)}>
+                <option value="">Sin motivo especial</option>
+                {["Zona extra", "Reemplazo", "Honorarios"].map((m) => (
+                  <option key={m} value={m}>{m}</option>
+                ))}
+              </select>
+            </div>
             <div>
               <label className="block text-[11px] font-semibold text-gy600 mb-1.5">Comentarios</label>
               <input className={inputCls} placeholder="Opcional..." value={comentarios} onChange={(e) => setComentarios(e.target.value)} />
@@ -403,8 +418,13 @@ export function MobileHome({ nombre, zonaNombre, personalId, profileId, veterina
               </div>
             </div>
             <div>
-              <label className="block text-[11px] font-semibold text-gy600 mb-1.5">Descripción</label>
-              <input className={inputCls} placeholder="Ej: Nafta Shell, km 1234..." value={gDesc} onChange={(e) => setGDesc(e.target.value)} />
+              <label className="block text-[11px] font-semibold text-gy600 mb-1.5">Concepto <span className="text-red-500">*</span></label>
+              <select className={inputCls} value={gDesc} onChange={(e) => setGDesc(e.target.value)}>
+                <option value="">Seleccioná un concepto…</option>
+                {["Peaje", "Nafta", "Estacionamiento", "Bebida"].map((c) => (
+                  <option key={c} value={c}>{c}</option>
+                ))}
+              </select>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
