@@ -106,31 +106,42 @@ export function NuevoPedidoForm({ creadoPorId }: Props) {
         </div>
         <div className="grid grid-cols-2 gap-3.5">
           <div className="flex flex-col gap-1.5">
-            <label className="text-[11px] font-semibold text-gy600">Nombre o búsqueda <span className="text-red-500">*</span></label>
+            <label className="text-[11px] font-semibold text-gy600">Nombre <span className="text-red-500">*</span></label>
             <input
-              list="vets-list-pedido"
+              list="vets-nombre-pedido"
               className="px-3 py-2 border-2 border-gy200 rounded-[6px] text-[13px] bg-gy50 focus:outline-none focus:border-g500"
               placeholder="Buscar por nombre..."
               value={form.veterinaria_texto}
               onChange={(e) => {
-                set("veterinaria_texto", e.target.value);
-                const match = veterinarias.find((v) => v.nombre === e.target.value);
+                const val = e.target.value;
+                set("veterinaria_texto", val);
+                const match = veterinarias.find((v) => v.nombre === val);
                 if (match) { set("veterinaria_id", match.id); set("codigo", match.codigo); }
-                else { set("veterinaria_id", ""); set("codigo", ""); }
+                else { set("veterinaria_id", ""); }
               }}
             />
-            <datalist id="vets-list-pedido">
-              {veterinarias.map((v) => <option key={v.id} value={v.nombre} />)}
+            <datalist id="vets-nombre-pedido">
+              {veterinarias.map((v) => <option key={v.id} value={v.nombre}>{v.codigo}</option>)}
             </datalist>
           </div>
           <div className="flex flex-col gap-1.5">
             <label className="text-[11px] font-semibold text-gy600">Código</label>
             <input
-              readOnly
-              className="px-3 py-2 border-2 border-gy200 rounded-[6px] text-[13px] bg-gy100 text-gy500 focus:outline-none font-mono"
-              placeholder="—"
+              list="vets-codigo-pedido"
+              className="px-3 py-2 border-2 border-gy200 rounded-[6px] text-[13px] bg-gy50 focus:outline-none focus:border-g500 font-mono"
+              placeholder="Buscar por código..."
               value={form.codigo}
+              onChange={(e) => {
+                const val = e.target.value;
+                set("codigo", val);
+                const match = veterinarias.find((v) => v.codigo === val);
+                if (match) { set("veterinaria_id", match.id); set("veterinaria_texto", match.nombre); }
+                else { set("veterinaria_id", ""); }
+              }}
             />
+            <datalist id="vets-codigo-pedido">
+              {veterinarias.map((v) => <option key={v.id} value={v.codigo}>{v.nombre}</option>)}
+            </datalist>
           </div>
         </div>
       </section>
