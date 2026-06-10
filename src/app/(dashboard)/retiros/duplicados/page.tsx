@@ -2,7 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { Topbar } from "@/components/layout/Topbar";
 import { formatDateTime } from "@/lib/utils/dates";
 import { fmtMoneySign } from "@/lib/utils/format";
-import Link from "next/link";
+import { DuplicadoActions } from "@/components/forms/DuplicadoActions";
 
 export default async function DuplicadosPage() {
   const supabase = await createClient();
@@ -50,14 +50,7 @@ export default async function DuplicadosPage() {
                     <td className="px-3.5 py-2.5">{fmtMoneySign(r.importe_declarado)}</td>
                     <td className="px-3.5 py-2.5 font-mono text-[11px] text-red-500">—</td>
                     <td className="px-3.5 py-2.5">
-                      <div className="flex gap-1.5">
-                        <button className="flex items-center gap-1 px-2.5 py-1 text-[11px] bg-g50 text-g700 border border-g200 rounded-[6px]">
-                          <i className="ti ti-check text-[13px]" /> Confirmar
-                        </button>
-                        <button className="flex items-center gap-1 px-2.5 py-1 text-[11px] bg-red-50 text-red-700 border border-red-200 rounded-[6px]">
-                          <i className="ti ti-x text-[13px]" /> Anular
-                        </button>
-                      </div>
+                      <DuplicadoActions retiroId={r.id} />
                     </td>
                   </tr>
                 ))}
