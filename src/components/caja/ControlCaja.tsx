@@ -20,16 +20,37 @@ export interface RendicionCadete {
   rendicion: any | null;
 }
 
-export function ControlCaja({ fecha, items }: { fecha: string; items: RendicionCadete[] }) {
-  const router = useRouter();
+export interface RevisadoRow {
+  id: string;
+  nombre: string;
+  fecha: string;
+  totalRecaudado: number;
+  totalEfectivo: number;
+  totalDigital: number;
+  totalGastos: number;
+  efectivoEsperado: number;
+  importeValidado: number;
+  diferencia: number;
+  estado: string;
+  observacion: string | null;
+}
 
-  const totalEsperado = items.reduce((s, i) => s + i.efectivoEsperado, 0);
-  const totalRecaudado = items.reduce((s, i) => s + i.totalRecaudado, 0);
-  const totalGastos = items.reduce((s, i) => s + i.totalGastos, 0);
+type Tab = "pendientes" | "revisado";
+
+export function ControlCaja({ fecha, items, revisados }: { fecha: string; items: RendicionCadete[]; revisados: RevisadoRow[] }) {
+  const router = useRouter();
+  const [tab, setTab] = useState<Tab>("pendientes");
+
+  // Pendientes de revisión: cadetes de la fecha sin rendición validada.
+  const pendientes = items.filter((i) => !i.rendicion || i.rendicion.estado === "pendiente");
+
+  const totalEsperado = pendientes.reduce((s, i) => s + i.efectivoEsperado, 0);
+  const totalRecaudado = pendientes.reduce((s, i) => s + i.totalRecaudado, 0);
+  const totalGastos = pendientes.reduce((s, i) => s + i.totalGastos, 0);
 
   return (
     <div className="space-y-4">
-      {/* Selector de fecha + resumen del día */}
+      {/* Selector de fecha + resumen del día (aplica a pendientes de la fecha) */}
       <div className="flex items-center gap-3 flex-wrap">
         <div className="flex items-center gap-2">
           <label className="text-[11px] font-semibold uppercase tracking-wide text-gy400">Fecha</label>
@@ -44,13 +65,87 @@ export function ControlCaja({ fecha, items }: { fecha: string; items: RendicionC
         </div>
       </div>
 
-      {items.length === 0 && (
-        <div className="py-12 text-center text-gy400">Sin movimientos de cadetes en esta fecha</div>
-      )}
+      {/* Solapas */}
+      <div className="flex gap-1 border-b border-gy200">
+        {([["pendientes", "Pendientes de revisión", pendientes.length], ["revisado", "Revisado", revisados.length]] as [Tab, string, number][]).map(([id, label, count]) => (
+          <button key={id} onClick={() => setTab(id)}
+            className={`px-4 py-2 text-[13px] font-semibold border-b-2 -mb-px transition-colors ${tab === id ? "border-g700 text-g700" : "border-transparent text-gy500 hover:text-gy700"}`}>
+            {label}
+            <span className={`ml-1.5 text-[10px] font-bold rounded-full px-1.5 py-0.5 ${tab === id ? "bg-g50 text-g700" : "bg-gy100 text-gy500"}`}>{count}</span>
+          </button>
+        ))}
+      </div>
 
-      {items.map((it) => (
-        <CadeteCard key={it.personalId} item={it} fecha={fecha} onSaved={() => router.refresh()} />
-      ))}
+      {/* Contenido */}
+      {tab === "pendientes" ? (
+        <div className="space-y-4">
+          {pendientes.length === 0 ? (
+            <div className="py-12 text-center text-gy400">No hay rendiciones pendientes de revisión en esta fecha</div>
+          ) : (
+            pendientes.map((it) => (
+              <CadeteCard key={it.personalId} item={it} fecha={fecha} onSaved={() => router.refresh()} />
+            ))
+          )}
+        </div>
+      ) : (
+        <RevisadoTabla rows={revisados} />
+      )}
+    </div>
+  );
+}
+
+function RevisadoTabla({ rows }: { rows: RevisadoRow[] }) {
+  const fmtDia = (f: string) => {
+    const [y, m, d] = f.split("-");
+    return `${d}/${m}/${y.slice(2)}`;
+  };
+
+  return (
+    <div className="bg-white rounded-[14px] border border-gy200 shadow-sm overflow-hidden">
+      <div className="overflow-x-auto">
+        <table className="w-full border-collapse text-[12px]">
+          <thead>
+            <tr className="bg-gy50">
+              {["Cadete", "Día", "Recaudado", "Ingresos efectivo", "Gastos", "Efectivo esperado", "Efectivo recibido", "Diferencia", "Estado"].map((h) => (
+                <th key={h} className="px-3.5 py-2.5 text-left text-[10px] font-bold uppercase tracking-wide text-gy400 border-b border-gy200 whitespace-nowrap">{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((r) => {
+              const conDif = r.estado === "diferencia";
+              return (
+                <tr key={r.id} className="hover:bg-gy50 border-b border-gy100 last:border-0">
+                  <td className="px-3.5 py-2.5 font-medium text-gy900">{r.nombre}</td>
+                  <td className="px-3.5 py-2.5 text-gy600 whitespace-nowrap">{fmtDia(r.fecha)}</td>
+                  <td className="px-3.5 py-2.5">{fmtMoneySign(r.totalRecaudado)}</td>
+                  <td className="px-3.5 py-2.5">{fmtMoneySign(r.totalEfectivo)}</td>
+                  <td className="px-3.5 py-2.5">{fmtMoneySign(r.totalGastos)}</td>
+                  <td className="px-3.5 py-2.5 font-semibold text-g700">{fmtMoneySign(r.efectivoEsperado)}</td>
+                  <td className="px-3.5 py-2.5">{fmtMoneySign(r.importeValidado)}</td>
+                  <td className={`px-3.5 py-2.5 font-bold ${r.diferencia < 0 ? "text-red-600" : r.diferencia > 0 ? "text-amber-text" : "text-g700"}`}>
+                    {r.diferencia >= 0 ? "+" : ""}{fmtMoneySign(r.diferencia)}
+                  </td>
+                  <td className="px-3.5 py-2.5">
+                    {conDif ? (
+                      <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-red-700 bg-red-50 border border-red-200 rounded-full px-2 py-0.5">
+                        <i className="ti ti-alert-triangle" /> Diferencia
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-g700 bg-g50 border border-g200 rounded-full px-2 py-0.5">
+                        <i className="ti ti-check" /> Validado
+                      </span>
+                    )}
+                  </td>
+                </tr>
+              );
+            })}
+            {rows.length === 0 && (
+              <tr><td colSpan={9} className="py-10 text-center text-gy400">Todavía no hay rendiciones revisadas</td></tr>
+            )}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }

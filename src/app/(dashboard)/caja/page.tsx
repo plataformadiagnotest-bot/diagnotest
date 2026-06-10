@@ -4,7 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { Topbar } from "@/components/layout/Topbar";
 import { esDireccion, landingPathForRole } from "@/lib/utils/roles";
 import { ControlCaja } from "@/components/caja/ControlCaja";
-import type { RendicionCadete } from "@/components/caja/ControlCaja";
+import type { RendicionCadete, RevisadoRow } from "@/components/caja/ControlCaja";
 
 export default async function CajaPage({
   searchParams,
@@ -22,7 +22,7 @@ export default async function CajaPage({
   const fecha = fechaParam || today;
 
   const admin = createAdminClient();
-  const [{ data: retiros }, { data: gastos }, { data: rendiciones }] = await Promise.all([
+  const [{ data: retiros }, { data: gastos }, { data: rendiciones }, { data: revisadosRaw }] = await Promise.all([
     admin.from("retiros")
       .select("personal_id, importe_declarado, metodo_pago, personal:personal_id(nombre)")
       .eq("fecha_operativa", fecha).eq("anulado", false),
@@ -30,6 +30,12 @@ export default async function CajaPage({
       .select("personal_id, monto, descripcion, tipo, personal:personal_id(nombre)")
       .eq("fecha_operativa", fecha),
     admin.from("rendiciones_caja").select("*").eq("fecha_operativa", fecha),
+    admin.from("rendiciones_caja")
+      .select("*, personal:personal_id(nombre)")
+      .in("estado", ["validado", "diferencia"])
+      .order("fecha_operativa", { ascending: false })
+      .order("updated_at", { ascending: false })
+      .limit(500),
   ]);
 
   // Agregación por cadete.
@@ -68,11 +74,26 @@ export default async function CajaPage({
     a.rendicion = rendPorPersonal.get(a.personalId) ?? null;
   }
 
+  const revisados: RevisadoRow[] = (revisadosRaw ?? []).map((x) => ({
+    id: x.id,
+    nombre: (x.personal as { nombre?: string } | null)?.nombre ?? "Sin nombre",
+    fecha: x.fecha_operativa,
+    totalRecaudado: Number(x.total_recaudado ?? 0),
+    totalEfectivo: Number(x.total_efectivo ?? 0),
+    totalDigital: Number(x.total_digital ?? 0),
+    totalGastos: Number(x.total_gastos ?? 0),
+    efectivoEsperado: Number(x.efectivo_esperado ?? 0),
+    importeValidado: Number(x.importe_validado ?? 0),
+    diferencia: Number(x.diferencia ?? 0),
+    estado: x.estado,
+    observacion: x.observacion ?? null,
+  }));
+
   return (
     <div>
       <Topbar title="Control de Caja — Logística" />
       <div className="p-6 space-y-4">
-        <ControlCaja fecha={fecha} items={items} />
+        <ControlCaja fecha={fecha} items={items} revisados={revisados} />
       </div>
     </div>
   );
