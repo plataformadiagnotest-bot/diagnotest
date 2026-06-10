@@ -81,6 +81,7 @@ export function GastosAuthClient({ gastos }: { gastos: Gasto[] }) {
     if (error) { toast("error", "Error al autorizar"); return; }
     toast("success", `${ids.length} gasto${ids.length > 1 ? "s" : ""} autorizado${ids.length > 1 ? "s" : ""} ✓`);
     setChecked({});
+    window.dispatchEvent(new Event("badges:refresh"));
     router.refresh();
   }
 
@@ -91,6 +92,7 @@ export function GastosAuthClient({ gastos }: { gastos: Gasto[] }) {
     if (error) { toast("error", "Error"); return; }
     toast("warning", "Gasto observado");
     setObsOpen((o) => ({ ...o, [id]: false }));
+    window.dispatchEvent(new Event("badges:refresh"));
     router.refresh();
   }
 

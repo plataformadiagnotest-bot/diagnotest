@@ -24,10 +24,11 @@ export function DuplicadoActions({ retiroId }: Props) {
     setLoading(null);
 
     if (!res.ok) { toast("error", json.error ?? "No se pudo resolver"); return; }
-    if (json.yaResuelto) { toast("info", "Otro usuario ya lo resolvió"); router.refresh(); return; }
+    if (json.yaResuelto) { toast("info", "Otro usuario ya lo resolvió"); window.dispatchEvent(new Event("badges:refresh")); router.refresh(); return; }
 
     toast(accion === "confirmar" ? "success" : "warning",
       accion === "confirmar" ? "Retiro confirmado como válido ✓" : "Retiro anulado por duplicado");
+    window.dispatchEvent(new Event("badges:refresh"));
     router.refresh();
   }
 

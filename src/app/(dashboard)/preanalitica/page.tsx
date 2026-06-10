@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { Topbar } from "@/components/layout/Topbar";
 import { StatCard } from "@/components/ui/StatCard";
 import { PreanaliticaBandeja } from "@/components/preanalitica/PreanaliticaBandeja";
+import { RecaudadoHoy } from "@/components/caja/RecaudadoHoy";
 
 export default async function PreanaliticaPage() {
   const supabase = await createClient();
@@ -47,6 +48,8 @@ export default async function PreanaliticaPage() {
           <StatCard label="Controlados hoy" value={controladosHoy ?? 0} />
           <StatCard label="Observados" value={observados ?? 0} accent="warn" />
         </div>
+
+        <RecaudadoHoy />
 
         <PreanaliticaBandeja controles={controles ?? []} />
       </div>

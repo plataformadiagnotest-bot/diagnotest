@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { cn } from "@/lib/utils/format";
 import { createClient } from "@/lib/supabase/client";
@@ -32,7 +32,7 @@ function getNavItems(rol: string): NavItem[] {
         { href: "/retiros", label: "Todos los retiros", icon: "ti-table" },
         { href: "/retiros/por-personal", label: "Por personal", icon: "ti-user" },
         { href: "/retiros/duplicados", label: "Duplicados", icon: "ti-copy", badgeClass: "amber" },
-        { href: "/gastos/autorizar", label: "Gastos a autorizar", icon: "ti-cash", badge: 8, badgeClass: "purple" },
+        { href: "/gastos/autorizar", label: "Gastos a autorizar", icon: "ti-cash", badgeClass: "purple" },
       ];
     case "preanalitica":
       return [
@@ -63,7 +63,7 @@ function getNavItems(rol: string): NavItem[] {
         { href: "/admin/personal", label: "Personal", icon: "ti-users" },
         { href: "/admin/veterinarias", label: "Veterinarias", icon: "ti-building-hospital" },
         { href: "/admin/zonas", label: "Zonas", icon: "ti-map" },
-        { href: "/gastos/autorizar", label: "Gastos", icon: "ti-cash", badge: 8, badgeClass: "purple" },
+        { href: "/gastos/autorizar", label: "Gastos", icon: "ti-cash", badgeClass: "purple" },
         { href: "/admin/auditoria", label: "Auditoría", icon: "ti-history" },
         { href: "/admin/config", label: "Configuración", icon: "ti-settings" },
       ];
@@ -89,14 +89,18 @@ export function Sidebar({ profile, onNavigate }: Props) {
   const router = useRouter();
   const navItems = getNavItems(profile.rol);
 
-  // Badges reales (en vez de números fijos). Se recalculan al navegar.
+  // Badges reales (en vez de números fijos). Se recalculan al navegar, al
+  // volver a la pestaña y cuando una acción dispara el evento "badges:refresh".
   const [dupCount, setDupCount] = useState(0);
   const [pedidosCount, setPedidosCount] = useState(0);
-  useEffect(() => {
+  const [gastosCount, setGastosCount] = useState(0);
+
+  const rol = profile.rol;
+  const refreshBadges = useCallback(() => {
     const supabase = createClient();
 
     // Duplicados: retiros marcados como sospechosos (jefe / preanalítica).
-    if (["jefe_logistica", "preanalitica", "super_admin"].includes(profile.rol)) {
+    if (["jefe_logistica", "preanalitica", "super_admin"].includes(rol)) {
       supabase
         .from("retiros")
         .select("id", { count: "exact", head: true })
@@ -106,14 +110,34 @@ export function Sidebar({ profile, onNavigate }: Props) {
     }
 
     // Pedidos abiertos: asignado / en proceso / vencido.
-    if (["jefe_logistica", "super_admin"].includes(profile.rol)) {
+    if (["jefe_logistica", "super_admin"].includes(rol)) {
       supabase
         .from("pedidos_retiro")
         .select("id", { count: "exact", head: true })
         .in("estado", ["asignado", "en_proceso", "vencido"])
         .then(({ count }) => setPedidosCount(count ?? 0));
     }
-  }, [profile.rol, pathname]);
+
+    // Gastos pendientes de autorizar.
+    if (["jefe_logistica", "super_admin", "dueno"].includes(rol)) {
+      supabase
+        .from("gastos")
+        .select("id", { count: "exact", head: true })
+        .eq("estado", "pendiente")
+        .then(({ count }) => setGastosCount(count ?? 0));
+    }
+  }, [rol]);
+
+  useEffect(() => {
+    refreshBadges();
+    const onFocus = () => refreshBadges();
+    window.addEventListener("badges:refresh", refreshBadges);
+    window.addEventListener("focus", onFocus);
+    return () => {
+      window.removeEventListener("badges:refresh", refreshBadges);
+      window.removeEventListener("focus", onFocus);
+    };
+  }, [refreshBadges, pathname]);
 
   async function handleLogout() {
     const supabase = createClient();
@@ -142,6 +166,7 @@ export function Sidebar({ profile, onNavigate }: Props) {
           const badge =
             item.href === "/retiros/duplicados" ? (dupCount || undefined)
             : item.href === "/pedidos" ? (pedidosCount || undefined)
+            : item.href === "/gastos/autorizar" ? (gastosCount || undefined)
             : item.badge;
           return (
             <Link

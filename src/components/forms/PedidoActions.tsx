@@ -52,6 +52,7 @@ export function PedidoActions({ pedidoId, estado, isPersonal }: Props) {
     toast("success", "Pedido reasignado ✓");
     setReasignando(false);
     setDestino("");
+    window.dispatchEvent(new Event("badges:refresh"));
     router.refresh();
   }
 
@@ -63,6 +64,7 @@ export function PedidoActions({ pedidoId, estado, isPersonal }: Props) {
       .eq("id", pedidoId);
     if (error) { toast("error", "Error al actualizar"); return; }
     toast("success", "Pedido marcado como resuelto ✓");
+    window.dispatchEvent(new Event("badges:refresh"));
     router.refresh();
   }
 
@@ -71,6 +73,7 @@ export function PedidoActions({ pedidoId, estado, isPersonal }: Props) {
     const supabase = createClient();
     await supabase.from("pedidos_retiro").update({ estado: "cancelado" }).eq("id", pedidoId);
     toast("warning", "Pedido cancelado");
+    window.dispatchEvent(new Event("badges:refresh"));
     router.refresh();
   }
 
