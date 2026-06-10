@@ -23,7 +23,7 @@ export default async function VeterinariasPage() {
             <span className="text-[14px] font-semibold flex-1">Veterinarias registradas</span>
             <PillStatus variant="ok" label={`${vets?.length ?? 0} registradas`} />
           </div>
-          <div className="overflow-x-auto">
+          <div className="table-scroll">
             <table className="w-full border-collapse text-[12px]">
               <thead>
                 <tr className="bg-gy50">

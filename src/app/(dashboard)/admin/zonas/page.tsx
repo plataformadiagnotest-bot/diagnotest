@@ -16,7 +16,7 @@ export default async function ZonasPage() {
             <span className="text-[14px] font-semibold flex-1">Zonas registradas</span>
             <PillStatus variant="ok" label={`${zonas?.length ?? 0} zonas`} />
           </div>
-          <div className="overflow-x-auto">
+          <div className="table-scroll">
             <table className="w-full border-collapse text-[12px]">
               <thead>
                 <tr className="bg-gy50">

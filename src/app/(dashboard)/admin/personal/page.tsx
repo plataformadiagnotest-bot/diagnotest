@@ -23,7 +23,7 @@ export default async function PersonalPage() {
             <span className="text-[14px] font-semibold flex-1">Personal de logística registrado</span>
             <PillStatus variant="ok" label={`${personal?.length ?? 0} activos`} />
           </div>
-          <div className="overflow-x-auto">
+          <div className="table-scroll">
             <table className="w-full border-collapse text-[12px]">
               <thead>
                 <tr className="bg-gy50">

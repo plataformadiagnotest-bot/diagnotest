@@ -49,7 +49,7 @@ export default async function PorPersonalPage() {
             <div className="px-4 py-3.5 border-b border-gy100">
               <span className="text-[14px] font-semibold">{firstPersonal.nombre} · {today}</span>
             </div>
-            <div className="overflow-x-auto">
+            <div className="table-scroll">
               <table className="w-full border-collapse text-[12px]">
                 <thead>
                   <tr className="bg-gy50">

@@ -68,7 +68,7 @@ export function DataTable<T extends Record<string, unknown>>({
           </button>
         </div>
       )}
-      <div className="overflow-x-auto">
+      <div className="table-scroll">
         <table className="w-full border-collapse text-[12px]">
           <thead>
             <tr className="bg-gy50">

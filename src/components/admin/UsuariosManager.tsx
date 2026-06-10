@@ -78,7 +78,7 @@ export function UsuariosManager({ usuarios, zonas }: { usuarios: UsuarioRow[]; z
           <i className="ti ti-plus" /> Nuevo
         </button>
       </div>
-      <div className="overflow-x-auto">
+      <div className="table-scroll">
         <table className="w-full border-collapse text-[12px]">
           <thead>
             <tr className="bg-gy50">

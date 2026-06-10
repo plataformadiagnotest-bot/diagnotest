@@ -30,7 +30,7 @@ export default async function DuplicadosPage() {
         </div>
 
         <div className="bg-white rounded-[14px] border border-gy200 shadow-sm overflow-hidden">
-          <div className="overflow-x-auto">
+          <div className="table-scroll">
             <table className="w-full border-collapse text-[12px]">
               <thead>
                 <tr className="bg-gy50">
