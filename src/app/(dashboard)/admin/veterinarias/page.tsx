@@ -38,7 +38,7 @@ export default async function VeterinariasPage() {
             <span className="text-[14px] font-semibold flex-1">Veterinarias registradas</span>
             <PillStatus variant="ok" label={`${count ?? vets.length} registradas`} />
           </div>
-          <div className="table-scroll">
+          <div className="table-scroll table-scroll-tall">
             <table className="w-full border-collapse text-[12px]">
               <thead>
                 <tr className="bg-gy50">

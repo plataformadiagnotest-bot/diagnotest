@@ -66,6 +66,11 @@ html, body {
   max-height: calc(100vh - 320px);
   min-height: 180px;
 }
+/* Para pantallas con poco contenido arriba de la tabla (ej. Maestro de
+   Veterinarias): aprovecha casi todo el alto disponible sin dejar hueco. */
+.table-scroll-tall {
+  max-height: calc(100vh - 210px);
+}
 .table-scroll thead th {
   position: sticky;
   top: 0;
