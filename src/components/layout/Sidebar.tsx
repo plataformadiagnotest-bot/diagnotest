@@ -28,7 +28,7 @@ function getNavItems(rol: string): NavItem[] {
       ];
     case "jefe_logistica":
       return [
-        { href: "/pedidos", label: "Pedidos de retiro", icon: "ti-map-pin", badge: 5, badgeClass: "blue" },
+        { href: "/pedidos", label: "Pedidos de retiro", icon: "ti-map-pin", badgeClass: "blue" },
         { href: "/retiros", label: "Todos los retiros", icon: "ti-table" },
         { href: "/retiros/por-personal", label: "Por personal", icon: "ti-user" },
         { href: "/retiros/duplicados", label: "Duplicados", icon: "ti-copy", badgeClass: "amber" },
@@ -58,7 +58,7 @@ function getNavItems(rol: string): NavItem[] {
       return [
         { href: "/dashboard", label: "Dashboard", icon: "ti-chart-bar" },
         { href: "/caja", label: "Control de caja", icon: "ti-cash-register" },
-        { href: "/pedidos", label: "Pedidos de retiro", icon: "ti-map-pin", badge: 5, badgeClass: "blue" },
+        { href: "/pedidos", label: "Pedidos de retiro", icon: "ti-map-pin", badgeClass: "blue" },
         { href: "/retiros", label: "Todos los retiros", icon: "ti-table" },
         { href: "/admin/personal", label: "Personal", icon: "ti-users" },
         { href: "/admin/veterinarias", label: "Veterinarias", icon: "ti-building-hospital" },
@@ -89,18 +89,30 @@ export function Sidebar({ profile, onNavigate }: Props) {
   const router = useRouter();
   const navItems = getNavItems(profile.rol);
 
-  // Badge real de "Duplicados": cuenta los retiros marcados como sospechosos.
-  // Compartido entre jefe de logística y preanalítica (misma fuente de datos).
+  // Badges reales (en vez de números fijos). Se recalculan al navegar.
   const [dupCount, setDupCount] = useState(0);
+  const [pedidosCount, setPedidosCount] = useState(0);
   useEffect(() => {
-    if (!["jefe_logistica", "preanalitica", "super_admin"].includes(profile.rol)) return;
     const supabase = createClient();
-    supabase
-      .from("retiros")
-      .select("id", { count: "exact", head: true })
-      .eq("estado", "duplicado_sospechoso")
-      .eq("anulado", false)
-      .then(({ count }) => setDupCount(count ?? 0));
+
+    // Duplicados: retiros marcados como sospechosos (jefe / preanalítica).
+    if (["jefe_logistica", "preanalitica", "super_admin"].includes(profile.rol)) {
+      supabase
+        .from("retiros")
+        .select("id", { count: "exact", head: true })
+        .eq("estado", "duplicado_sospechoso")
+        .eq("anulado", false)
+        .then(({ count }) => setDupCount(count ?? 0));
+    }
+
+    // Pedidos abiertos: asignado / en proceso / vencido.
+    if (["jefe_logistica", "super_admin"].includes(profile.rol)) {
+      supabase
+        .from("pedidos_retiro")
+        .select("id", { count: "exact", head: true })
+        .in("estado", ["asignado", "en_proceso", "vencido"])
+        .then(({ count }) => setPedidosCount(count ?? 0));
+    }
   }, [profile.rol, pathname]);
 
   async function handleLogout() {
@@ -126,8 +138,11 @@ export function Sidebar({ profile, onNavigate }: Props) {
         {navItems.map((item) => {
           const active = pathname === item.href || pathname.startsWith(item.href + "/");
           const bc = badgeStyles[item.badgeClass ?? "default"];
-          // Duplicados usa el conteo real; si es 0 no muestra badge.
-          const badge = item.href === "/retiros/duplicados" ? (dupCount || undefined) : item.badge;
+          // Badges con conteo real; si es 0 no muestran nada.
+          const badge =
+            item.href === "/retiros/duplicados" ? (dupCount || undefined)
+            : item.href === "/pedidos" ? (pedidosCount || undefined)
+            : item.badge;
           return (
             <Link
               key={item.href}
