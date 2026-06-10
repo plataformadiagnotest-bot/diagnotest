@@ -48,12 +48,14 @@ function getNavItems(rol: string): NavItem[] {
     case "dueno":
       return [
         { href: "/dashboard", label: "Dashboard", icon: "ti-chart-bar" },
+        { href: "/caja", label: "Control de caja", icon: "ti-cash-register" },
         { href: "/retiros", label: "Todos los retiros", icon: "ti-table" },
         { href: "/gastos/autorizar", label: "Gastos", icon: "ti-cash" },
       ];
     case "super_admin":
       return [
         { href: "/dashboard", label: "Dashboard", icon: "ti-chart-bar" },
+        { href: "/caja", label: "Control de caja", icon: "ti-cash-register" },
         { href: "/pedidos", label: "Pedidos de retiro", icon: "ti-map-pin", badge: 5, badgeClass: "blue" },
         { href: "/retiros", label: "Todos los retiros", icon: "ti-table" },
         { href: "/admin/personal", label: "Personal", icon: "ti-users" },

@@ -1,0 +1,79 @@
+import { redirect } from "next/navigation";
+import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { Topbar } from "@/components/layout/Topbar";
+import { esDireccion, landingPathForRole } from "@/lib/utils/roles";
+import { ControlCaja } from "@/components/caja/ControlCaja";
+import type { RendicionCadete } from "@/components/caja/ControlCaja";
+
+export default async function CajaPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ fecha?: string }>;
+}) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) redirect("/login");
+  const { data: rolRow } = await supabase.from("profiles").select("rol").eq("id", user.id).single();
+  if (!esDireccion(rolRow?.rol)) redirect(landingPathForRole(rolRow?.rol));
+
+  const { fecha: fechaParam } = await searchParams;
+  const today = new Date().toISOString().split("T")[0];
+  const fecha = fechaParam || today;
+
+  const admin = createAdminClient();
+  const [{ data: retiros }, { data: gastos }, { data: rendiciones }] = await Promise.all([
+    admin.from("retiros")
+      .select("personal_id, importe_declarado, metodo_pago, personal:personal_id(nombre)")
+      .eq("fecha_operativa", fecha).eq("anulado", false),
+    admin.from("gastos")
+      .select("personal_id, monto, descripcion, tipo, personal:personal_id(nombre)")
+      .eq("fecha_operativa", fecha),
+    admin.from("rendiciones_caja").select("*").eq("fecha_operativa", fecha),
+  ]);
+
+  // Agregación por cadete.
+  const map = new Map<string, RendicionCadete>();
+  const ensure = (id: string, nombre: string) => {
+    if (!map.has(id)) {
+      map.set(id, {
+        personalId: id, nombre,
+        totalEfectivo: 0, totalDigital: 0, totalRecaudado: 0,
+        retirosEfectivo: 0, retirosDigital: 0,
+        gastos: [], totalGastos: 0, efectivoEsperado: 0,
+        rendicion: null,
+      });
+    }
+    return map.get(id)!;
+  };
+
+  for (const r of retiros ?? []) {
+    const nombre = (r.personal as { nombre?: string } | null)?.nombre ?? "Sin nombre";
+    const a = ensure(r.personal_id, nombre);
+    const m = Number(r.importe_declarado ?? 0);
+    if (r.metodo_pago === "efectivo") { a.totalEfectivo += m; a.retirosEfectivo += 1; }
+    else { a.totalDigital += m; a.retirosDigital += 1; }
+  }
+  for (const g of gastos ?? []) {
+    const nombre = (g.personal as { nombre?: string } | null)?.nombre ?? "Sin nombre";
+    const a = ensure(g.personal_id, nombre);
+    a.gastos.push({ descripcion: g.descripcion, monto: Number(g.monto ?? 0), tipo: g.tipo });
+    a.totalGastos += Number(g.monto ?? 0);
+  }
+  const rendPorPersonal = new Map((rendiciones ?? []).map((x) => [x.personal_id, x]));
+  const items = Array.from(map.values()).sort((x, y) => x.nombre.localeCompare(y.nombre, "es"));
+  for (const a of items) {
+    a.totalRecaudado = a.totalEfectivo + a.totalDigital;
+    a.efectivoEsperado = a.totalEfectivo - a.totalGastos;
+    a.rendicion = rendPorPersonal.get(a.personalId) ?? null;
+  }
+
+  return (
+    <div>
+      <Topbar title="Control de Caja — Logística" />
+      <div className="p-6 space-y-4">
+        <ControlCaja fecha={fecha} items={items} />
+      </div>
+    </div>
+  );
+}
