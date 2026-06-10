@@ -6,10 +6,25 @@ import { VeterinariasSync } from "@/components/admin/VeterinariasSync";
 export default async function VeterinariasPage() {
   const supabase = await createClient();
 
-  const { data: vets } = await supabase
+  // Conteo exacto (PostgREST corta el listado en 1000 filas por defecto).
+  const { count } = await supabase
     .from("veterinarias")
-    .select("*, zona:zona_id(nombre)")
-    .order("nombre");
+    .select("*", { count: "exact", head: true });
+
+  // Traer todas las filas paginando de a 1000.
+  const PAGE = 1000;
+  type Vet = { id: string; codigo: string; nombre: string; email: string | null; telefono: string | null; direccion: string | null; localidad: string | null; activa: boolean; zona: { nombre?: string } | null };
+  const vets: Vet[] = [];
+  for (let from = 0; ; from += PAGE) {
+    const { data, error } = await supabase
+      .from("veterinarias")
+      .select("*, zona:zona_id(nombre)")
+      .order("nombre")
+      .range(from, from + PAGE - 1);
+    if (error || !data || data.length === 0) break;
+    vets.push(...(data as unknown as Vet[]));
+    if (data.length < PAGE) break;
+  }
 
   return (
     <div>
@@ -21,7 +36,7 @@ export default async function VeterinariasPage() {
         <div className="bg-white rounded-[14px] border border-gy200 shadow-sm overflow-hidden">
           <div className="px-4 py-3.5 border-b border-gy100 flex items-center gap-2">
             <span className="text-[14px] font-semibold flex-1">Veterinarias registradas</span>
-            <PillStatus variant="ok" label={`${vets?.length ?? 0} registradas`} />
+            <PillStatus variant="ok" label={`${count ?? vets.length} registradas`} />
           </div>
           <div className="table-scroll">
             <table className="w-full border-collapse text-[12px]">
@@ -33,7 +48,7 @@ export default async function VeterinariasPage() {
                 </tr>
               </thead>
               <tbody>
-                {(vets ?? []).map((v) => (
+                {vets.map((v) => (
                   <tr key={v.id} className="hover:bg-gy50 border-b border-gy100 last:border-0">
                     <td className="px-3.5 py-2.5 font-mono text-g700">{v.codigo}</td>
                     <td className="px-3.5 py-2.5 font-medium text-gy900">{v.nombre}</td>
@@ -50,7 +65,7 @@ export default async function VeterinariasPage() {
                     </td>
                   </tr>
                 ))}
-                {!vets?.length && (
+                {vets.length === 0 && (
                   <tr><td colSpan={9} className="py-10 text-center text-gy400">Sin veterinarias — importá desde Google Sheets</td></tr>
                 )}
               </tbody>

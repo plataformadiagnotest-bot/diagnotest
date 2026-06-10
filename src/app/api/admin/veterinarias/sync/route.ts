@@ -2,6 +2,9 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 
+// Sincronizaciones grandes (miles de filas) necesitan más margen que el default.
+export const maxDuration = 60;
+
 // ── Helpers ─────────────────────────────────────────────────
 async function requireSuperAdmin() {
   const supabase = await createClient();
@@ -65,14 +68,36 @@ export async function POST(req: Request) {
   // 1) Descargar el CSV
   let csvText: string;
   try {
-    const resp = await fetch(csvUrl, { redirect: "follow", cache: "no-store" });
-    if (!resp.ok) throw new Error(String(resp.status));
-    csvText = await resp.text();
-    if (/<html/i.test(csvText)) {
-      return NextResponse.json({ error: "No se pudo leer el Sheet. Verificá que esté como 'Cualquiera con el enlace puede ver'." }, { status: 400 });
+    const resp = await fetch(csvUrl, {
+      redirect: "follow",
+      cache: "no-store",
+      headers: {
+        // Google puede rechazar o devolver HTML si no hay un User-Agent de navegador.
+        "User-Agent": "Mozilla/5.0 (compatible; DiagnotestBot/1.0)",
+        "Accept": "text/csv,text/plain,*/*",
+      },
+    });
+
+    // Si terminó en una pantalla de login/permisos de Google → el Sheet no es público.
+    if (/accounts\.google\.com|ServiceLogin/i.test(resp.url)) {
+      return NextResponse.json({ error: "El Sheet no es público. Compartilo como 'Cualquiera con el enlace puede ver' e intentá de nuevo." }, { status: 400 });
     }
-  } catch {
-    return NextResponse.json({ error: "No se pudo descargar el Sheet (revisá el link y los permisos)" }, { status: 400 });
+    if (!resp.ok) {
+      const detalle = resp.status === 404
+        ? "El Sheet no existe o el link es incorrecto (404)."
+        : resp.status === 401 || resp.status === 403
+          ? "Sin permisos para acceder al Sheet. Compartilo como 'Cualquiera con el enlace puede ver'."
+          : `Google respondió ${resp.status} al descargar el Sheet.`;
+      return NextResponse.json({ error: detalle }, { status: 400 });
+    }
+
+    csvText = await resp.text();
+    if (/<html|<!doctype html/i.test(csvText)) {
+      return NextResponse.json({ error: "El Sheet devolvió una página web en vez de datos. Verificá que esté como 'Cualquiera con el enlace puede ver' y que el link apunte a la hoja correcta." }, { status: 400 });
+    }
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "desconocido";
+    return NextResponse.json({ error: `No se pudo descargar el Sheet (${msg}). Revisá el link y los permisos.` }, { status: 400 });
   }
 
   // 2) Parsear y mapear columnas por encabezado
@@ -125,8 +150,20 @@ export async function POST(req: Request) {
     return null;
   }
 
+  // Códigos ya existentes (para clasificar creado vs actualizado). Paginado por el cap de 1000.
+  const existentes = new Set<string>();
+  for (let from = 0; ; from += 1000) {
+    const { data, error } = await admin.from("veterinarias").select("codigo").range(from, from + 999);
+    if (error || !data || data.length === 0) break;
+    for (const v of data) existentes.add(String(v.codigo));
+    if (data.length < 1000) break;
+  }
+
   const results: ResultRow[] = [];
   let conZona = 0;
+  type VetPayload = { codigo: string; nombre: string; direccion: string | null; telefono: string | null; email: string | null; localidad: string | null; zona_id: string | null; activa: boolean };
+  const payloads: VetPayload[] = [];
+  const vistos = new Set<string>(); // evita procesar dos veces el mismo código dentro del Sheet
 
   for (const r of rows.slice(1)) {
     const codigo = (r[colCodigo] ?? "").trim();
@@ -136,6 +173,11 @@ export async function POST(req: Request) {
       results.push({ codigo: codigo || "(sin código)", nombre: nombre || "(sin nombre)", estado: "error", detalle: "Falta código o nombre" });
       continue;
     }
+    if (vistos.has(codigo)) {
+      results.push({ codigo, nombre, estado: "error", detalle: "Código duplicado dentro del Sheet" });
+      continue;
+    }
+    vistos.add(codigo);
 
     const direccion = colDireccion !== -1 ? (r[colDireccion] ?? "").trim() || null : null;
     const telefono = colTelefono !== -1 ? (r[colTelefono] ?? "").trim() || null : null;
@@ -158,18 +200,20 @@ export async function POST(req: Request) {
     }
     if (zonaId) conZona++;
 
-    // ¿Ya existe por código? → actualizar; si no, crear.
-    const { data: existing } = await admin.from("veterinarias").select("id").eq("codigo", codigo).maybeSingle();
-    const payload = { codigo, nombre, direccion, telefono, email, localidad, zona_id: zonaId, activa: true };
+    payloads.push({ codigo, nombre, direccion, telefono, email, localidad, zona_id: zonaId, activa: true });
+    results.push({ codigo, nombre, estado: existentes.has(codigo) ? "actualizado" : "creado" });
+  }
 
-    if (existing) {
-      const { error } = await admin.from("veterinarias").update(payload).eq("id", existing.id);
-      if (error) { results.push({ codigo, nombre, estado: "error", detalle: error.message }); continue; }
-      results.push({ codigo, nombre, estado: "actualizado" });
-    } else {
-      const { error } = await admin.from("veterinarias").insert(payload);
-      if (error) { results.push({ codigo, nombre, estado: "error", detalle: error.message }); continue; }
-      results.push({ codigo, nombre, estado: "creado" });
+  // Upsert por lotes (codigo es unique) → evita miles de round-trips y el timeout.
+  const CHUNK = 500;
+  for (let i = 0; i < payloads.length; i += CHUNK) {
+    const chunk = payloads.slice(i, i + CHUNK);
+    const { error } = await admin.from("veterinarias").upsert(chunk, { onConflict: "codigo" });
+    if (error) {
+      const codes = new Set(chunk.map((p) => p.codigo));
+      for (const res of results) {
+        if (codes.has(res.codigo) && res.estado !== "error") { res.estado = "error"; res.detalle = error.message; }
+      }
     }
   }
 
