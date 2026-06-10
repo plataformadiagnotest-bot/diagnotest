@@ -1,5 +1,6 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { landingPathForRole } from "@/lib/utils/roles";
 
 export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request });
@@ -38,8 +39,14 @@ export async function updateSession(request: NextRequest) {
   }
 
   if (user && pathname === "/login") {
+    // Cada rol aterriza en su propia página (el Dashboard es solo de dirección).
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("rol")
+      .eq("id", user.id)
+      .single();
     const url = request.nextUrl.clone();
-    url.pathname = "/dashboard";
+    url.pathname = landingPathForRole(profile?.rol);
     return NextResponse.redirect(url);
   }
 
