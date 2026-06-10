@@ -148,7 +148,8 @@ export function MobileHome({ nombre, zonaNombre, personalId, profileId, veterina
       return;
     }
 
-    const { error } = await supabase.from("retiros").insert(retiro);
+    // Insert directo al servidor: por definición queda sincronizado.
+    const { error } = await supabase.from("retiros").insert({ ...retiro, sincronizado: true });
     if (error) { toast("error", "Error al guardar: " + error.message); setSavingRetiro(false); return; }
 
     if (pedidoId) {

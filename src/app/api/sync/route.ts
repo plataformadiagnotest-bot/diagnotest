@@ -15,7 +15,11 @@ export async function POST(request: NextRequest) {
 
     switch (item.action) {
       case "create": {
-        const { error } = await db.insert(item.data);
+        // Al llegar al servidor el registro ya está sincronizado.
+        const data = item.table === "retiros"
+          ? { ...(item.data as Record<string, unknown>), sincronizado: true }
+          : item.data;
+        const { error } = await db.insert(data);
         if (error) return NextResponse.json({ error: error.message }, { status: 400 });
         break;
       }
