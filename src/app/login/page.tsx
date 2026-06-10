@@ -1,13 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
 import { landingPathForRole } from "@/lib/utils/roles";
 
 export default function LoginPage() {
-  const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -44,8 +42,12 @@ export default function LoginPage() {
       return;
     }
 
-    // Cada rol aterriza en su propia página (el Dashboard es solo de dirección)
-    router.replace(landingPathForRole(profile.rol));
+    // Cada rol aterriza en su propia página (el Dashboard es solo de dirección).
+    // Navegación "dura" (no router.replace): fuerza al servidor a renderizar
+    // el layout con el usuario recién logueado. Con router.replace, Next reutiliza
+    // el layout cacheado del usuario anterior y se veía el módulo equivocado hasta
+    // recargar la página.
+    window.location.assign(landingPathForRole(profile.rol));
   }
 
   return (
