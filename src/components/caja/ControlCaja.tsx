@@ -100,8 +100,62 @@ function RevisadoTabla({ rows }: { rows: RevisadoRow[] }) {
     return `${d}/${m}/${y.slice(2)}`;
   };
 
+  const [cadete, setCadete] = useState("");
+  const [desde, setDesde] = useState("");
+  const [hasta, setHasta] = useState("");
+  const [soloDif, setSoloDif] = useState(false);
+
+  // Cadetes únicos para el desplegable.
+  const cadetes = Array.from(new Set(rows.map((r) => r.nombre))).sort((a, b) => a.localeCompare(b, "es"));
+
+  const filtradas = rows.filter((r) => {
+    if (cadete && r.nombre !== cadete) return false;
+    if (desde && r.fecha < desde) return false;
+    if (hasta && r.fecha > hasta) return false;
+    if (soloDif && r.estado !== "diferencia") return false;
+    return true;
+  });
+
+  const sumDif = filtradas.reduce((s, r) => s + r.diferencia, 0);
+  const sumEsperado = filtradas.reduce((s, r) => s + r.efectivoEsperado, 0);
+  const sumRecibido = filtradas.reduce((s, r) => s + r.importeValidado, 0);
+  const hayFiltro = cadete || desde || hasta || soloDif;
+
+  const inputCls = "px-2.5 py-1.5 border-2 border-gy200 rounded-[8px] text-[12px] bg-gy50 focus:outline-none focus:border-g500";
+
   return (
-    <div className="bg-white rounded-[14px] border border-gy200 shadow-sm overflow-hidden">
+    <div className="space-y-3">
+      {/* Filtros */}
+      <div className="flex items-end gap-3 flex-wrap bg-white rounded-[12px] border border-gy200 shadow-sm px-3.5 py-3">
+        <div className="flex flex-col gap-1">
+          <label className="text-[10px] font-semibold uppercase tracking-wide text-gy400">Cadete</label>
+          <select value={cadete} onChange={(e) => setCadete(e.target.value)} className={inputCls}>
+            <option value="">Todos</option>
+            {cadetes.map((c) => <option key={c} value={c}>{c}</option>)}
+          </select>
+        </div>
+        <div className="flex flex-col gap-1">
+          <label className="text-[10px] font-semibold uppercase tracking-wide text-gy400">Desde</label>
+          <input type="date" value={desde} onChange={(e) => setDesde(e.target.value)} className={inputCls} />
+        </div>
+        <div className="flex flex-col gap-1">
+          <label className="text-[10px] font-semibold uppercase tracking-wide text-gy400">Hasta</label>
+          <input type="date" value={hasta} onChange={(e) => setHasta(e.target.value)} className={inputCls} />
+        </div>
+        <label className="flex items-center gap-1.5 text-[12px] text-gy600 cursor-pointer py-1.5">
+          <input type="checkbox" checked={soloDif} onChange={(e) => setSoloDif(e.target.checked)} className="accent-red-600" />
+          Solo con diferencia
+        </label>
+        {hayFiltro && (
+          <button onClick={() => { setCadete(""); setDesde(""); setHasta(""); setSoloDif(false); }}
+            className="flex items-center gap-1 px-2.5 py-1.5 text-[12px] font-medium text-gy600 hover:text-gy900">
+            <i className="ti ti-x text-[13px]" /> Limpiar
+          </button>
+        )}
+        <div className="ml-auto text-[11px] text-gy400 py-1.5">{filtradas.length} de {rows.length}</div>
+      </div>
+
+      <div className="bg-white rounded-[14px] border border-gy200 shadow-sm overflow-hidden">
       <div className="overflow-x-auto">
         <table className="w-full border-collapse text-[12px]">
           <thead>
@@ -112,7 +166,7 @@ function RevisadoTabla({ rows }: { rows: RevisadoRow[] }) {
             </tr>
           </thead>
           <tbody>
-            {rows.map((r) => {
+            {filtradas.map((r) => {
               const conDif = r.estado === "diferencia";
               return (
                 <tr key={r.id} className="hover:bg-gy50 border-b border-gy100 last:border-0">
@@ -140,11 +194,27 @@ function RevisadoTabla({ rows }: { rows: RevisadoRow[] }) {
                 </tr>
               );
             })}
-            {rows.length === 0 && (
-              <tr><td colSpan={9} className="py-10 text-center text-gy400">Todavía no hay rendiciones revisadas</td></tr>
+            {filtradas.length === 0 && (
+              <tr><td colSpan={9} className="py-10 text-center text-gy400">
+                {rows.length === 0 ? "Todavía no hay rendiciones revisadas" : "Ningún registro coincide con los filtros"}
+              </td></tr>
             )}
           </tbody>
+          {filtradas.length > 0 && (
+            <tfoot>
+              <tr className="bg-gy50 border-t-2 border-gy200 font-bold text-gy800">
+                <td className="px-3.5 py-2.5" colSpan={5}>Totales ({filtradas.length})</td>
+                <td className="px-3.5 py-2.5 text-g700">{fmtMoneySign(sumEsperado)}</td>
+                <td className="px-3.5 py-2.5">{fmtMoneySign(sumRecibido)}</td>
+                <td className={`px-3.5 py-2.5 ${sumDif < 0 ? "text-red-600" : sumDif > 0 ? "text-amber-text" : "text-g700"}`}>
+                  {sumDif >= 0 ? "+" : ""}{fmtMoneySign(sumDif)}
+                </td>
+                <td className="px-3.5 py-2.5" />
+              </tr>
+            </tfoot>
+          )}
         </table>
+      </div>
       </div>
     </div>
   );
