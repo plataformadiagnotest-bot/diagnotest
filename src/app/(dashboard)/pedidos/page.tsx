@@ -34,6 +34,10 @@ export default async function PedidosPage() {
   const vencidos = pedidos?.filter((p) => p.estado === "vencido") ?? [];
   const resueltos = pedidos?.filter((p) => p.estado === "resuelto") ?? [];
 
+  // El listado muestra solo pedidos abiertos: los resueltos y cancelados
+  // salen de la vista (quedan registrados y contados en las estadísticas).
+  const visibles = (pedidos ?? []).filter((p) => p.estado !== "resuelto" && p.estado !== "cancelado");
+
   const estadoStyle: Record<string, string> = {
     asignado: "border-l-4 border-l-blue-500",
     en_proceso: "border-l-4 border-l-blue-400",
@@ -83,7 +87,7 @@ export default async function PedidosPage() {
 
         {/* Pedidos list */}
         <div className="space-y-3">
-          {(pedidos ?? []).map((p) => {
+          {visibles.map((p) => {
             const vet = p.veterinaria as any;
             const personal = p.personal_asignado as any;
             const creado_por = p.creado_por as any;
@@ -148,8 +152,8 @@ export default async function PedidosPage() {
             );
           })}
 
-          {!pedidos?.length && (
-            <div className="py-12 text-center text-gy400">Sin pedidos registrados</div>
+          {!visibles.length && (
+            <div className="py-12 text-center text-gy400">No hay pedidos pendientes</div>
           )}
         </div>
       </div>
