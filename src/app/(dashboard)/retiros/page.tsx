@@ -157,7 +157,6 @@ export default async function RetirosPage({
             <table className="w-full border-collapse text-[12px]">
               <thead>
                 <tr className="bg-gy50">
-                  <th className="px-3.5 py-2.5 text-left text-[10px] font-bold uppercase tracking-wide text-gy400 border-b border-gy200">ID</th>
                   <th className="px-3.5 py-2.5 text-left text-[10px] font-bold uppercase tracking-wide text-gy400 border-b border-gy200">Fecha/hora</th>
                   {!isPersonal && <th className="px-3.5 py-2.5 text-left text-[10px] font-bold uppercase tracking-wide text-gy400 border-b border-gy200">Personal</th>}
                   <th className="px-3.5 py-2.5 text-left text-[10px] font-bold uppercase tracking-wide text-gy400 border-b border-gy200">Veterinaria</th>
@@ -175,7 +174,6 @@ export default async function RetirosPage({
                   const cobEstado = Array.isArray(r.control_cobranzas) ? r.control_cobranzas[0]?.estado : (r.control_cobranzas as any)?.estado;
                   return (
                     <tr key={r.id} className="hover:bg-gy50 border-b border-gy100 last:border-0">
-                      <td className="px-3.5 py-2.5 font-mono text-[11px] text-gy400">{r.id.slice(0, 8).toUpperCase()}</td>
                       <td className="px-3.5 py-2.5 text-gy600">{formatDateTime(r.timestamp_carga)}</td>
                       {!isPersonal && <td className="px-3.5 py-2.5 font-medium text-gy900">{(r.personal as any)?.nombre ?? "—"}</td>}
                       <td className="px-3.5 py-2.5 max-w-[140px] truncate">
@@ -208,7 +206,7 @@ export default async function RetirosPage({
                   );
                 })}
                 {!retiros?.length && (
-                  <tr><td colSpan={10} className="py-10 text-center text-gy400 text-sm">Sin retiros registrados</td></tr>
+                  <tr><td colSpan={9} className="py-10 text-center text-gy400 text-sm">Sin retiros registrados</td></tr>
                 )}
               </tbody>
             </table>
