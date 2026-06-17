@@ -4,6 +4,7 @@ import { PillStatus } from "@/components/ui/PillStatus";
 import { StatCard } from "@/components/ui/StatCard";
 import { fmtMoney } from "@/lib/utils/format";
 import { formatDateTime } from "@/lib/utils/dates";
+import { EliminarRetiro } from "@/components/retiros/EliminarRetiro";
 import Link from "next/link";
 
 const METODO_PAGO_LABEL: Record<string, string> = {
@@ -31,6 +32,8 @@ export default async function RetirosPage({
 
   const { data: profile } = await supabase.from("profiles").select("rol").eq("id", user!.id).single();
   const isPersonal = profile?.rol === "personal_logistica";
+  // Dirección y super admin pueden eliminar registros manualmente.
+  const canDelete = profile?.rol === "dueno" || profile?.rol === "super_admin";
 
   const { f, desde, hasta, cod } = await searchParams;
   // Por defecto, el personal de logística ve sus retiros de hoy
@@ -199,6 +202,9 @@ export default async function RetirosPage({
                               className="px-2 py-1 text-[11px] bg-white border border-gy200 rounded-[6px] hover:bg-gy50 flex items-center gap-1 text-g700">
                               <i className="ti ti-photo text-[13px]" />
                             </a>
+                          )}
+                          {canDelete && (
+                            <EliminarRetiro retiroId={r.id} etiqueta={(r.veterinaria as any)?.nombre ?? r.veterinaria_texto_original} />
                           )}
                         </div>
                       </td>
