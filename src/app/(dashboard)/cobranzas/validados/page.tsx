@@ -85,7 +85,7 @@ export default async function CobranzasValidadosPage({
             <table className="w-full border-collapse text-[12px]">
               <thead>
                 <tr className="bg-gy50">
-                  {["ID", "Fecha", "Personal", "Importe decl.", "Importe valid.", "Diferencia", "Medio", "Observación", "Autorizado por", "Estado"].map((h) => (
+                  {["ID", "Fecha", "Personal", "Veterinaria", "Código", "Importe", "Medio", "Observación", "Autorizado por", "Estado"].map((h) => (
                     <th key={h} className="px-3.5 py-2.5 text-left text-[10px] font-bold uppercase tracking-wide text-gy400 border-b border-gy200">{h}</th>
                   ))}
                 </tr>
@@ -93,17 +93,14 @@ export default async function CobranzasValidadosPage({
               <tbody>
                 {(controles ?? []).map((c) => {
                   const r = c.retiro as any;
-                  const diff = (c.importe_validado ?? 0) - c.importe_declarado;
                   return (
                     <tr key={c.id} className="hover:bg-gy50 border-b border-gy100 last:border-0">
                       <td className="px-3.5 py-2.5 font-mono text-[11px] text-gy400">{r?.id?.slice(0, 8).toUpperCase()}</td>
                       <td className="px-3.5 py-2.5 text-gy600 whitespace-nowrap">{formatDateTime(c.updated_at)}</td>
                       <td className="px-3.5 py-2.5 font-medium">{r?.personal?.nombre ?? "—"}</td>
-                      <td className="px-3.5 py-2.5">{fmtMoneySign(c.importe_declarado)}</td>
-                      <td className="px-3.5 py-2.5">{fmtMoneySign(c.importe_validado ?? 0)}</td>
-                      <td className={`px-3.5 py-2.5 font-bold ${diff === 0 ? "text-g700" : diff > 0 ? "text-g700" : "text-red-600"}`}>
-                        {diff >= 0 ? "+" : ""}{fmtMoneySign(diff)}
-                      </td>
+                      <td className="px-3.5 py-2.5 max-w-[180px] truncate" title={r?.veterinaria_texto_original ?? ""}>{r?.veterinaria_texto_original ?? "—"}</td>
+                      <td className="px-3.5 py-2.5 font-mono text-[11px] text-gy500">{r?.codigo_original ?? "—"}</td>
+                      <td className="px-3.5 py-2.5 font-semibold text-g700">{fmtMoneySign(c.importe_declarado)}</td>
                       <td className="px-3.5 py-2.5">{METODO_PAGO_LABEL[r?.metodo_pago as string] ?? "—"}</td>
                       <td className="px-3.5 py-2.5 text-gy600 max-w-[200px] truncate" title={c.detalle ?? ""}>{c.detalle || "—"}</td>
                       <td className="px-3.5 py-2.5 text-gy600">{c.responsable_id ? (nombrePorId.get(c.responsable_id) ?? "—") : "—"}</td>
