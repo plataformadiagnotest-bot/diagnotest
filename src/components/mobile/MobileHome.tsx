@@ -7,7 +7,7 @@ import { useOffline } from "@/lib/hooks/useOffline";
 import { useSync } from "@/lib/hooks/useSync";
 import { saveRetiroOffline, addToSyncQueue, getRetirosOffline } from "@/lib/offline/indexeddb";
 import { toast } from "@/components/ui/ToastNotification";
-import { todayISO, nowISO } from "@/lib/utils/dates";
+import { todayISO, nowISO, formatDateTime } from "@/lib/utils/dates";
 import { initials, fmtMoneySign } from "@/lib/utils/format";
 import { notificarNuevoPedido, pedirPermisoNotificaciones } from "@/lib/utils/notificaciones";
 import type { MetodoPago } from "@/types";
@@ -532,8 +532,6 @@ export function MobileHome({ nombre, zonaNombre, personalId, profileId, veterina
               <div className="py-12 text-center text-gy400 text-[13px]">No tenés pedidos asignados</div>
             )}
             {pedidos.map((p) => {
-              const mins = Math.floor((Date.now() - new Date(p.created_at).getTime()) / 60000);
-              const hace = `${Math.floor(mins / 60)}h ${mins % 60}m`;
               return (
                 <div key={p.id} className="bg-white border border-blue-200 border-l-4 border-l-blue-500 rounded-[12px] px-3.5 py-3 shadow-sm">
                   <div className="flex items-start justify-between gap-2">
@@ -543,7 +541,10 @@ export function MobileHome({ nombre, zonaNombre, personalId, profileId, veterina
                     </div>
                     {p.urgente && <span className="text-[9px] font-bold bg-red-500 text-white rounded-full px-2 py-0.5 shrink-0">URGENTE</span>}
                   </div>
-                  <div className="text-[11px] text-gy400 mt-1">Hace {hace}</div>
+                  <div className="flex items-center gap-1.5 text-[12px] font-semibold text-blue-700 mt-1.5">
+                    <i className="ti ti-clock-hour-4 text-[14px]" />
+                    Horario de retiro: {formatDateTime(p.fecha_limite)}
+                  </div>
                   {p.detalle && <div className="text-[11px] text-gy500 mt-0.5">{p.detalle}</div>}
                   <button onClick={() => abrirPedido(p)}
                     className="w-full mt-2.5 flex items-center justify-center gap-1.5 py-2.5 bg-blue-500 hover:bg-blue-600 text-white text-[13px] font-semibold rounded-[10px] transition-colors">

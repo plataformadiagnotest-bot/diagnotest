@@ -48,12 +48,12 @@ export default async function InicioPage() {
     const { data } = await supabase
       .from("pedidos_retiro")
       .select(`
-        id, estado, urgente, detalle, created_at,
+        id, estado, urgente, detalle, created_at, fecha_limite,
         veterinaria:veterinaria_id(id, nombre, codigo)
       `)
       .eq("personal_asignado_id", personalId)
       .in("estado", ["asignado", "en_proceso"])
-      .order("created_at", { ascending: false });
+      .order("fecha_limite", { ascending: true });
 
     pedidos = (data ?? []).map((p) => {
       const vet = p.veterinaria as { id?: string; nombre?: string; codigo?: string } | null;
@@ -63,6 +63,7 @@ export default async function InicioPage() {
         urgente: p.urgente,
         detalle: p.detalle,
         created_at: p.created_at,
+        fecha_limite: p.fecha_limite,
         veterinaria_id: vet?.id ?? null,
         veterinaria_nombre: vet?.nombre ?? "Veterinaria",
         veterinaria_codigo: vet?.codigo ?? "",
@@ -118,6 +119,7 @@ export interface PedidoMobile {
   urgente: boolean;
   detalle: string | null;
   created_at: string;
+  fecha_limite: string;
   veterinaria_id: string | null;
   veterinaria_nombre: string;
   veterinaria_codigo: string;
