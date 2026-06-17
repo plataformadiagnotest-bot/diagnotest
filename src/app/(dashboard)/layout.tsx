@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { DashboardShell } from "@/components/layout/DashboardShell";
+import { UpdatePrompt } from "@/components/offline/UpdatePrompt";
 import type { Profile } from "@/types";
 
 export default async function DashboardLayout({
@@ -27,10 +28,16 @@ export default async function DashboardLayout({
       <div className="min-h-screen bg-gy100 flex justify-center">
         <div className="w-full max-w-[480px] bg-white min-h-screen shadow-xl flex flex-col">
           {children}
+          <UpdatePrompt />
         </div>
       </div>
     );
   }
 
-  return <DashboardShell profile={profile as Profile}>{children}</DashboardShell>;
+  return (
+    <DashboardShell profile={profile as Profile}>
+      {children}
+      <UpdatePrompt />
+    </DashboardShell>
+  );
 }
