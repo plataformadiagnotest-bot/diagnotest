@@ -6,21 +6,23 @@ import { RecaudadoHoy } from "@/components/caja/RecaudadoHoy";
 
 export default async function PreanaliticaPage() {
   const supabase = await createClient();
+  const today = new Date().toISOString().split("T")[0];
 
+  // Solo los controles del día: con !inner + filtro sobre fecha_operativa del
+  // retiro, no arrastra muestras de días anteriores que quedaron sin controlar.
   const { data: controles } = await supabase
     .from("control_preanalitica")
     .select(`
       *,
-      retiro:retiro_id(
+      retiro:retiro_id!inner(
         id, cantidad_muestras, comentarios, urgente, fecha_operativa, timestamp_carga,
         veterinaria_texto_original, codigo_original, comprobante_url,
         personal:personal_id(nombre)
       )
     `)
     .in("estado", ["pendiente", "observado"])
+    .eq("retiro.fecha_operativa", today)
     .order("created_at", { ascending: true });
-
-  const today = new Date().toISOString().split("T")[0];
 
   // Conteos reales para las tarjetas (head: true → solo trae el count).
   const [{ count: controladosHoy }, { count: observados }] = await Promise.all([
@@ -31,8 +33,9 @@ export default async function PreanaliticaPage() {
       .gte("updated_at", today + "T00:00:00Z"),
     supabase
       .from("control_preanalitica")
-      .select("id", { count: "exact", head: true })
-      .in("estado", ["observado", "rechazado"]),
+      .select("id, retiro:retiro_id!inner(fecha_operativa)", { count: "exact", head: true })
+      .in("estado", ["observado", "rechazado"])
+      .eq("retiro.fecha_operativa", today),
   ]);
 
   const pendientes = controles?.filter((c) => c.estado === "pendiente").length ?? 0;
