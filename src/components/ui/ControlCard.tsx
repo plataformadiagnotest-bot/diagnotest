@@ -51,6 +51,9 @@ export function ControlCard({ control, tipo }: Props) {
 
   const [ctrl1, setCtrl1] = useState(control.control_1 ?? "");
   const [ctrl2, setCtrl2] = useState(control.control_2 ?? "");
+  // Valores ya persistidos en la base, para marcar en verde lo que está guardado.
+  const [savedCtrl1, setSavedCtrl1] = useState(control.control_1 ?? "");
+  const [savedCtrl2, setSavedCtrl2] = useState(control.control_2 ?? "");
   const [estado, setEstado] = useState(control.estado ?? "pendiente");
   const [detalle, setDetalle] = useState(control.detalle ?? "");
   const [etiquetas, setEtiquetas] = useState<string[]>(control.etiquetas ?? []);
@@ -227,6 +230,9 @@ export function ControlCard({ control, tipo }: Props) {
     const json = await res.json();
     setSaving(false);
     if (!res.ok) { toast("error", json.error ?? "Error al guardar"); return; }
+    // Confirmamos lo que quedó persistido para resaltarlo en verde.
+    setSavedCtrl1(ctrl1);
+    setSavedCtrl2(ctrl2);
     toast("success", "Control guardado ✓");
     router.refresh();
   }
@@ -308,8 +314,13 @@ export function ControlCard({ control, tipo }: Props) {
         {tipo === "pre" && (
           <div className="grid grid-cols-3 gap-2.5 mb-3">
             <div>
-              <div className="text-[10px] font-semibold uppercase tracking-wide text-gy400 mb-1">Control 1</div>
-              <select className="w-full px-2.5 py-1.5 border-2 border-gy200 rounded-[6px] text-[12px] bg-gy50 focus:outline-none focus:border-g500"
+              <div className="text-[10px] font-semibold uppercase tracking-wide text-gy400 mb-1 flex items-center gap-1">
+                Control 1
+                {ctrl1 !== "" && ctrl1 === savedCtrl1 && (
+                  <span className="inline-flex items-center gap-0.5 text-g600 normal-case tracking-normal font-medium"><i className="ti ti-check text-[11px]" />guardado</span>
+                )}
+              </div>
+              <select className={`w-full px-2.5 py-1.5 border-2 rounded-[6px] text-[12px] focus:outline-none focus:border-g500 transition-colors ${ctrl1 !== "" && ctrl1 === savedCtrl1 ? "border-g300 bg-g50 text-g700 font-medium" : "border-gy200 bg-gy50"}`}
                 value={ctrl1} onChange={(e) => setCtrl1(e.target.value)}>
                 <option value="">— Seleccionar —</option>
                 <option value="ok">OK</option>
@@ -317,8 +328,13 @@ export function ControlCard({ control, tipo }: Props) {
               </select>
             </div>
             <div>
-              <div className="text-[10px] font-semibold uppercase tracking-wide text-gy400 mb-1">Control 2</div>
-              <select className="w-full px-2.5 py-1.5 border-2 border-gy200 rounded-[6px] text-[12px] bg-gy50 focus:outline-none focus:border-g500"
+              <div className="text-[10px] font-semibold uppercase tracking-wide text-gy400 mb-1 flex items-center gap-1">
+                Control 2
+                {ctrl2 !== "" && ctrl2 === savedCtrl2 && (
+                  <span className="inline-flex items-center gap-0.5 text-g600 normal-case tracking-normal font-medium"><i className="ti ti-check text-[11px]" />guardado</span>
+                )}
+              </div>
+              <select className={`w-full px-2.5 py-1.5 border-2 rounded-[6px] text-[12px] focus:outline-none focus:border-g500 transition-colors ${ctrl2 !== "" && ctrl2 === savedCtrl2 ? "border-g300 bg-g50 text-g700 font-medium" : "border-gy200 bg-gy50"}`}
                 value={ctrl2} onChange={(e) => setCtrl2(e.target.value)}>
                 <option value="">— Seleccionar —</option>
                 <option value="ok">OK</option>
