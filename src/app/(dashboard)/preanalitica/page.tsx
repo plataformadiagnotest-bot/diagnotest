@@ -3,6 +3,7 @@ import { Topbar } from "@/components/layout/Topbar";
 import { StatCard } from "@/components/ui/StatCard";
 import { PreanaliticaBandeja } from "@/components/preanalitica/PreanaliticaBandeja";
 import { RecaudadoHoy } from "@/components/caja/RecaudadoHoy";
+import { MuestrasPorCadete } from "@/components/caja/MuestrasPorCadete";
 
 export default async function PreanaliticaPage() {
   const supabase = await createClient();
@@ -51,7 +52,10 @@ export default async function PreanaliticaPage() {
           <StatCard label="Observados" value={observados ?? 0} accent="warn" />
         </div>
 
-        <RecaudadoHoy />
+        <div className="grid grid-cols-2 gap-3.5">
+          <MuestrasPorCadete />
+          <RecaudadoHoy />
+        </div>
 
         <PreanaliticaBandeja controles={controles ?? []} />
       </div>

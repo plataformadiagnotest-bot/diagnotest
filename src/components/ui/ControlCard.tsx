@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { createClient } from "@/lib/supabase/client";
 import { toast } from "@/components/ui/ToastNotification";
 import { PillStatus } from "@/components/ui/PillStatus";
 import { fmtMoneySign } from "@/lib/utils/format";
@@ -53,13 +54,18 @@ export function ControlCard({ control, tipo }: Props) {
   const [estado, setEstado] = useState(control.estado ?? "pendiente");
   const [detalle, setDetalle] = useState(control.detalle ?? "");
   const [etiquetas, setEtiquetas] = useState<string[]>(control.etiquetas ?? []);
-  const [importeValidado, setImporteValidado] = useState(control.importe_validado ?? retiro?.importe_declarado ?? "");
   const [saving, setSaving] = useState(false);
 
   // Muestras editables (solo preanalítica) con confirmación.
   const [muestras, setMuestras] = useState(String(retiro?.cantidad_muestras ?? ""));
   const [savingMuestras, setSavingMuestras] = useState(false);
   const yaObservado = control.estado === "observado";
+
+  // Fotos adjuntas (solo preanalítica): se suben al bucket "comprobantes"
+  // y se persiste el listado de URLs en control_preanalitica.fotos_urls.
+  const [fotos, setFotos] = useState<string[]>(control.fotos_urls ?? []);
+  const [subiendoFoto, setSubiendoFoto] = useState(false);
+  const fotoInput = useRef<HTMLInputElement>(null);
 
   // Automatización de estado sugerido a partir de los controles.
   const sugerido = ctrl1 === "observar" || ctrl2 === "observar"
@@ -134,6 +140,50 @@ export function ControlCard({ control, tipo }: Props) {
     toast("success", "Cantidad de muestras actualizada ✓");
   }
 
+  // Persiste el listado de fotos en la base (las URLs ya están en el storage).
+  async function persistirFotos(nuevas: string[]) {
+    const res = await fetch("/api/preanalitica/fotos", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ controlId: control.id, fotos: nuevas }),
+    });
+    if (!res.ok) {
+      const json = await res.json().catch(() => ({}));
+      toast("error", json.error ?? "No se pudo guardar la foto");
+      return false;
+    }
+    return true;
+  }
+
+  async function adjuntarFotos(files: FileList | null) {
+    if (!files || files.length === 0) return;
+    setSubiendoFoto(true);
+    const supabase = createClient();
+    const subidas: string[] = [];
+    for (const file of Array.from(files)) {
+      const ext = (file.name.split(".").pop() || "jpg").toLowerCase();
+      const path = `preanalitica/${control.id}/${crypto.randomUUID()}.${ext}`;
+      const { error } = await supabase.storage.from("comprobantes").upload(path, file, {
+        cacheControl: "3600", upsert: false, contentType: file.type || "image/jpeg",
+      });
+      if (error) { toast("error", "No se pudo subir: " + error.message); continue; }
+      subidas.push(supabase.storage.from("comprobantes").getPublicUrl(path).data.publicUrl);
+    }
+    if (subidas.length) {
+      const nuevas = [...fotos, ...subidas];
+      const ok = await persistirFotos(nuevas);
+      if (ok) { setFotos(nuevas); toast("success", `${subidas.length} foto(s) adjuntada(s) ✓`); }
+    }
+    setSubiendoFoto(false);
+    if (fotoInput.current) fotoInput.current.value = "";
+  }
+
+  async function quitarFoto(url: string) {
+    const nuevas = fotos.filter((f) => f !== url);
+    const ok = await persistirFotos(nuevas);
+    if (ok) setFotos(nuevas);
+  }
+
   async function save(newEstado: string) {
     // Automatización: si los controles indican observación pero se fuerza "ok", avisar.
     if (tipo === "pre" && newEstado === "ok" && sugerido === "observado") {
@@ -149,7 +199,8 @@ export function ControlCard({ control, tipo }: Props) {
         body: JSON.stringify({
           controlId: control.id,
           estado: newEstado,
-          importeValidado: parseFloat(String(importeValidado)) || 0,
+          // El monto no se valida en cobranzas; se adjudica el declarado para no generar diferencias.
+          importeValidado: Number(retiro?.importe_declarado) || 0,
           detalle: detalle || null,
         }),
       });
@@ -309,13 +360,13 @@ export function ControlCard({ control, tipo }: Props) {
                 : preEtiquetas.length === 0 && <div className="text-[12px] text-gy400 italic">Sin etiquetas ni comentarios de preanalítica</div>}
             </div>
 
-            {/* Sin select de Estado: las acciones de abajo (Adjudicado / Observar / Diferencia) ya lo definen. */}
+            {/* Cobranzas solo adjudica: la validación del monto se hace en Control de Caja. */}
             <div className="grid grid-cols-2 gap-2.5 mb-3">
               <div>
-                <div className="text-[10px] font-semibold uppercase tracking-wide text-gy400 mb-1">Importe validado</div>
-                <input type="number" step="0.01"
-                  className="w-full px-2.5 py-1.5 border-2 border-gy200 rounded-[6px] text-[12px] bg-gy50 focus:outline-none focus:border-g500"
-                  value={importeValidado} onChange={(e) => setImporteValidado(e.target.value)} />
+                <div className="text-[10px] font-semibold uppercase tracking-wide text-gy400 mb-1">Importe declarado</div>
+                <div className="w-full px-2.5 py-1.5 border-2 border-gy100 rounded-[6px] text-[12px] bg-gy50 text-gy700 font-semibold">
+                  {fmtMoneySign(retiro?.importe_declarado ?? 0)}
+                </div>
               </div>
               <div>
                 <div className="text-[10px] font-semibold uppercase tracking-wide text-gy400 mb-1">Medio de pago</div>
@@ -344,6 +395,35 @@ export function ControlCard({ control, tipo }: Props) {
           </div>
         )}
 
+        {tipo === "pre" && (
+          <div className="mb-3">
+            <div className="text-[10px] font-semibold uppercase tracking-wide text-gy400 mb-1.5">Fotos adjuntas</div>
+            <div className="flex flex-wrap gap-2 items-center">
+              {fotos.map((url) => (
+                <div key={url} className="relative group">
+                  <a href={url} target="_blank" rel="noopener noreferrer">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={url} alt="Foto adjunta" className="w-16 h-16 object-cover rounded-[8px] border border-gy200" />
+                  </a>
+                  <button type="button" onClick={() => quitarFoto(url)}
+                    title="Quitar foto"
+                    className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-red-600 text-white text-[11px] leading-none flex items-center justify-center shadow hover:bg-red-700">
+                    <i className="ti ti-x" />
+                  </button>
+                </div>
+              ))}
+              <input ref={fotoInput} type="file" accept="image/*" multiple className="hidden"
+                onChange={(e) => adjuntarFotos(e.target.files)} />
+              <button type="button" onClick={() => fotoInput.current?.click()} disabled={subiendoFoto}
+                className="w-16 h-16 rounded-[8px] border-2 border-dashed border-gy200 text-gy400 hover:border-g400 hover:text-g600 flex flex-col items-center justify-center gap-0.5 disabled:opacity-50">
+                {subiendoFoto
+                  ? <span className="w-4 h-4 border-2 border-gy300 border-t-g600 rounded-full animate-spin" />
+                  : <><i className="ti ti-camera-plus text-[16px]" /><span className="text-[9px]">Adjuntar</span></>}
+              </button>
+            </div>
+          </div>
+        )}
+
         <div className="mb-3">
           <div className="text-[10px] font-semibold uppercase tracking-wide text-gy400 mb-1">Detalle / Observación</div>
           <input type="text"
@@ -359,19 +439,22 @@ export function ControlCard({ control, tipo }: Props) {
           </div>
         )}
         <div className="flex items-center gap-2 flex-wrap">
+          {tipo === "pre" && (
+            <button onClick={() => save("pendiente")} disabled={saving}
+              title="Guarda el avance (control 1) sin finalizar. El control 2 puede hacerse después."
+              className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-medium bg-gy50 text-gy700 border border-gy200 rounded-[6px] hover:bg-gy100 disabled:opacity-50">
+              <i className="ti ti-device-floppy text-[13px]" /> Guardar
+            </button>
+          )}
           <button onClick={() => save(tipo === "pre" ? "ok" : "adjudicado")} disabled={saving}
             className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-medium bg-g50 text-g700 border border-g200 rounded-[6px] hover:bg-g100 disabled:opacity-50">
             <i className="ti ti-check text-[13px]" />
             {tipo === "pre" ? "Controlado OK" : "Adjudicado OK"}
           </button>
-          <button onClick={() => save("observado")} disabled={saving}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-medium bg-amber-bg text-amber-text border border-amber/40 rounded-[6px] hover:bg-amber/10 disabled:opacity-50">
-            <i className="ti ti-eye text-[13px]" /> Observar
-          </button>
-          {tipo === "cob" && (
-            <button onClick={() => save("diferencia")} disabled={saving}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-medium bg-red-50 text-red-700 border border-red-200 rounded-[6px] hover:bg-red-100 disabled:opacity-50">
-              <i className="ti ti-x text-[13px]" /> Diferencia
+          {tipo === "pre" && (
+            <button onClick={() => save("observado")} disabled={saving}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-medium bg-amber-bg text-amber-text border border-amber/40 rounded-[6px] hover:bg-amber/10 disabled:opacity-50">
+              <i className="ti ti-eye text-[13px]" /> Observar
             </button>
           )}
           <span className="ml-auto text-[10px] text-gy400">

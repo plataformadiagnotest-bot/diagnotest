@@ -12,7 +12,7 @@ export default async function CobranzasPage() {
     .select(`
       *,
       retiro:retiro_id(
-        id, importe_declarado, urgente, fecha_operativa, timestamp_carga,
+        id, importe_declarado, urgente, fecha_operativa, timestamp_carga, comentarios,
         veterinaria_texto_original, codigo_original, comprobante_url, metodo_pago,
         personal:personal_id(nombre),
         control_preanalitica:control_preanalitica(estado, etiquetas, detalle)
