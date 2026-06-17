@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { MobileHome } from "@/components/mobile/MobileHome";
+import { todayISO } from "@/lib/utils/dates";
 
 export default async function InicioPage() {
   const supabase = await createClient();
@@ -69,6 +70,27 @@ export default async function InicioPage() {
     });
   }
 
+  // Retiros del día de este cadete — alimentan la solapa "Resumen".
+  let retirosHoy: RetiroResumen[] = [];
+  if (personalId) {
+    const { data } = await supabase
+      .from("retiros")
+      .select("id, veterinaria_texto_original, codigo_original, importe_declarado, cantidad_muestras, timestamp_carga")
+      .eq("personal_id", personalId)
+      .eq("fecha_operativa", todayISO())
+      .eq("anulado", false)
+      .neq("estado", "duplicado_sospechoso" as never)
+      .order("timestamp_carga", { ascending: false });
+
+    retirosHoy = (data ?? []).map((r) => ({
+      id: r.id,
+      veterinaria: r.veterinaria_texto_original ?? "Veterinaria",
+      codigo: r.codigo_original ?? "",
+      importe: Number(r.importe_declarado ?? 0),
+      muestras: Number(r.cantidad_muestras ?? 0),
+    }));
+  }
+
   return (
     <MobileHome
       nombre={profile?.nombre ?? personal?.nombre ?? "Personal"}
@@ -77,8 +99,17 @@ export default async function InicioPage() {
       profileId={user.id}
       veterinarias={vets ?? []}
       pedidos={pedidos}
+      retirosHoy={retirosHoy}
     />
   );
+}
+
+export interface RetiroResumen {
+  id: string;
+  veterinaria: string;
+  codigo: string;
+  importe: number;
+  muestras: number;
 }
 
 export interface PedidoMobile {

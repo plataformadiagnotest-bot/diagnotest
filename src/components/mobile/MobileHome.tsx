@@ -1,15 +1,16 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useOffline } from "@/lib/hooks/useOffline";
-import { saveRetiroOffline, addToSyncQueue } from "@/lib/offline/indexeddb";
+import { saveRetiroOffline, addToSyncQueue, getRetirosOffline } from "@/lib/offline/indexeddb";
 import { toast } from "@/components/ui/ToastNotification";
 import { todayISO, nowISO } from "@/lib/utils/dates";
-import { initials } from "@/lib/utils/format";
+import { initials, fmtMoneySign } from "@/lib/utils/format";
+import { notificarNuevoPedido, pedirPermisoNotificaciones } from "@/lib/utils/notificaciones";
 import type { MetodoPago } from "@/types";
-import type { PedidoMobile } from "@/app/(dashboard)/inicio/page";
+import type { PedidoMobile, RetiroResumen } from "@/app/(dashboard)/inicio/page";
 
 interface VetOption { id: string; codigo: string; nombre: string; telefono: string | null; direccion: string | null }
 
@@ -20,17 +21,77 @@ interface Props {
   profileId: string;
   veterinarias: VetOption[];
   pedidos: PedidoMobile[];
+  retirosHoy: RetiroResumen[];
 }
 
-type Tab = "retiro" | "pedidos" | "gastos";
+type Tab = "resumen" | "retiro" | "pedidos" | "gastos";
 
-export function MobileHome({ nombre, zonaNombre, personalId, profileId, veterinarias, pedidos }: Props) {
+export function MobileHome({ nombre, zonaNombre, personalId, profileId, veterinarias, pedidos, retirosHoy }: Props) {
   const router = useRouter();
   const { isOffline } = useOffline();
   const supabase = createClient();
 
-  const [tab, setTab] = useState<Tab>("retiro");
+  const [tab, setTab] = useState<Tab>("resumen");
   const [bannerOpen, setBannerOpen] = useState(pedidos.length > 0);
+  const [verVets, setVerVets] = useState(false);
+
+  // Retiros offline del día (aún sin sincronizar) — se suman al resumen del servidor.
+  const [retirosOfflineHoy, setRetirosOfflineHoy] = useState<RetiroResumen[]>([]);
+  useEffect(() => {
+    if (!personalId) return;
+    let activo = true;
+    getRetirosOffline(personalId).then((rows) => {
+      if (!activo) return;
+      const hoy = todayISO();
+      const mapped = (rows ?? [])
+        .filter((r) => r.fecha_operativa === hoy)
+        .map((r) => ({
+          id: r.id,
+          veterinaria: r.veterinaria_texto_original ?? "Veterinaria",
+          codigo: r.codigo_original ?? "",
+          importe: Number(r.importe_declarado ?? 0),
+          muestras: Number(r.cantidad_muestras ?? 0),
+        }));
+      setRetirosOfflineHoy(mapped);
+    });
+    return () => { activo = false; };
+  }, [personalId, isOffline]);
+
+  // Combina servidor + offline sin duplicar por id.
+  const resumenRetiros = useMemo(() => {
+    const ids = new Set(retirosHoy.map((r) => r.id));
+    return [...retirosHoy, ...retirosOfflineHoy.filter((r) => !ids.has(r.id))];
+  }, [retirosHoy, retirosOfflineHoy]);
+
+  const totalVisitas = resumenRetiros.length;
+  const totalImporte = resumenRetiros.reduce((s, r) => s + r.importe, 0);
+  const totalMuestras = resumenRetiros.reduce((s, r) => s + r.muestras, 0);
+
+  // Realtime: cuando el jefe asigna un pedido a este cadete, el perfil se
+  // actualiza solo (sin recargar) y avisa con vibración + sonido + notificación.
+  useEffect(() => {
+    if (!personalId) return;
+    pedirPermisoNotificaciones();
+    const channel = supabase
+      .channel(`pedidos-cadete-${personalId}`)
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "pedidos_retiro", filter: `personal_asignado_id=eq.${personalId}` },
+        () => {
+          notificarNuevoPedido();
+          toast("info", "📍 Nuevo pedido de retiro asignado");
+          router.refresh();
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "pedidos_retiro", filter: `personal_asignado_id=eq.${personalId}` },
+        () => router.refresh()
+      )
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [personalId]);
 
   // ── Retiro form ─────────────────────────────────────────────
   const [vetTexto, setVetTexto] = useState("");
@@ -167,22 +228,36 @@ export function MobileHome({ nombre, zonaNombre, personalId, profileId, veterina
     if (!gDesc.trim()) { toast("error", "Seleccioná un concepto"); return; }
     setSavingGasto(true);
 
-    let comprobanteUrl: string | null = null;
-    if (fotoGasto) {
-      comprobanteUrl = await uploadComprobante(fotoGasto);
-      if (!comprobanteUrl) { setSavingGasto(false); return; }
-    }
-
-    const { error } = await supabase.from("gastos").insert({
+    const gasto = {
+      id: crypto.randomUUID(),
       personal_id: personalId,
       tipo: gTipo,
       descripcion: gDesc,
       monto: parseFloat(gMonto) || 0,
       fecha_operativa: gFecha,
-      comprobante_url: comprobanteUrl,
-      estado: "pendiente",
-    });
+      comprobante_url: null as string | null,
+      estado: "pendiente" as const,
+    };
 
+    // Offline: encolar para sincronizar al reconectarse (la foto se adjunta luego).
+    if (isOffline) {
+      await addToSyncQueue({ id: crypto.randomUUID(), action: "create", table: "gastos", data: gasto, timestamp: Date.now() });
+      toast("warning", fotoGasto
+        ? "Gasto guardado offline — la foto deberá adjuntarse al reconectarse"
+        : "Gasto guardado offline — se sincronizará al reconectarse");
+      setGDesc(""); setGMonto(""); setFotoGasto(null);
+      if (fotoGastoInput.current) fotoGastoInput.current.value = "";
+      setSavingGasto(false);
+      return;
+    }
+
+    if (fotoGasto) {
+      const url = await uploadComprobante(fotoGasto);
+      if (!url) { setSavingGasto(false); return; }
+      gasto.comprobante_url = url;
+    }
+
+    const { error } = await supabase.from("gastos").insert(gasto);
     if (error) { toast("error", "Error al guardar: " + error.message); setSavingGasto(false); return; }
     toast("success", "Gasto registrado correctamente ✓");
     setGDesc(""); setGMonto(""); setFotoGasto(null);
@@ -246,9 +321,9 @@ export function MobileHome({ nombre, zonaNombre, personalId, profileId, veterina
 
         {/* Tabs */}
         <div className="flex bg-gy100 rounded-[10px] p-1">
-          {([["retiro", "Nuevo retiro"], ["pedidos", "Pedidos"], ["gastos", "Gastos"]] as [Tab, string][]).map(([t, label]) => (
+          {([["resumen", "Resumen"], ["retiro", "Nuevo retiro"], ["pedidos", "Pedidos"], ["gastos", "Gastos"]] as [Tab, string][]).map(([t, label]) => (
             <button key={t} onClick={() => setTab(t)}
-              className={`flex-1 py-2 rounded-[8px] text-[12px] font-semibold transition-all ${tab === t ? "bg-white text-g700 shadow-sm" : "text-gy500"}`}>
+              className={`flex-1 py-2 rounded-[8px] text-[11px] font-semibold transition-all ${tab === t ? "bg-white text-g700 shadow-sm" : "text-gy500"}`}>
               {label}
               {t === "pedidos" && pedidos.length > 0 && (
                 <span className="ml-1 text-[9px] bg-blue-500 text-white rounded-full px-1.5 py-0.5">{pedidos.length}</span>
@@ -256,6 +331,65 @@ export function MobileHome({ nombre, zonaNombre, personalId, profileId, veterina
             </button>
           ))}
         </div>
+
+        {/* TAB: Resumen del día */}
+        {tab === "resumen" && (
+          <div className="space-y-3">
+            <div className="text-[11px] text-gy400">Tu actividad de hoy · {todayISO().split("-").reverse().join("/")}</div>
+            <div className="grid grid-cols-3 gap-2">
+              {/* Veterinarias (clickable) */}
+              <button onClick={() => setVerVets((v) => !v)}
+                className={`flex flex-col items-center justify-center gap-0.5 py-3.5 rounded-[12px] border-2 transition-all ${verVets ? "border-g500 bg-g50" : "border-gy200 bg-white"}`}>
+                <span className="text-[24px] font-bold text-g700 leading-none">{totalVisitas}</span>
+                <span className="text-[10px] font-semibold text-gy500 flex items-center gap-0.5">
+                  Veterinarias <i className={`ti ti-chevron-${verVets ? "up" : "down"} text-[11px]`} />
+                </span>
+              </button>
+              {/* Ingreso total */}
+              <div className="flex flex-col items-center justify-center gap-0.5 py-3.5 rounded-[12px] border-2 border-gy200 bg-white">
+                <span className="text-[18px] font-bold text-g700 leading-none">{fmtMoneySign(totalImporte)}</span>
+                <span className="text-[10px] font-semibold text-gy500">Ingreso día</span>
+              </div>
+              {/* Muestras */}
+              <div className="flex flex-col items-center justify-center gap-0.5 py-3.5 rounded-[12px] border-2 border-gy200 bg-white">
+                <span className="text-[24px] font-bold text-g700 leading-none">{totalMuestras}</span>
+                <span className="text-[10px] font-semibold text-gy500">Muestras</span>
+              </div>
+            </div>
+
+            {/* Listado de veterinarias visitadas (al tocar el número) */}
+            {verVets && (
+              <div className="bg-white border border-gy200 rounded-[12px] overflow-hidden">
+                <div className="px-3.5 py-2.5 border-b border-gy100 text-[11px] font-bold uppercase tracking-wide text-gy400">
+                  Veterinarias visitadas hoy
+                </div>
+                {resumenRetiros.length === 0 ? (
+                  <div className="py-8 text-center text-[12px] text-gy400">Todavía no cargaste retiros hoy</div>
+                ) : (
+                  <div className="divide-y divide-gy100">
+                    {resumenRetiros.map((r) => (
+                      <div key={r.id} className="flex items-center gap-3 px-3.5 py-2.5">
+                        <div className="min-w-0 flex-1">
+                          <div className="font-mono text-[15px] font-bold text-gy900 leading-tight">{r.codigo || "S/C"}</div>
+                          <div className="text-[11px] text-gy500 truncate">{r.veterinaria}</div>
+                        </div>
+                        <div className="text-right shrink-0">
+                          <div className="text-[13px] font-semibold text-g700">{fmtMoneySign(r.importe)}</div>
+                          <div className="text-[10px] text-gy400">{r.muestras} muestra{r.muestras !== 1 ? "s" : ""}</div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            <button onClick={() => setTab("retiro")}
+              className="w-full py-3 bg-g800 hover:bg-g700 text-white font-bold rounded-[12px] text-[14px] flex items-center justify-center gap-2 transition-colors">
+              <i className="ti ti-circle-plus text-[18px]" /> Cargar nuevo retiro
+            </button>
+          </div>
+        )}
 
         {/* TAB: Nuevo retiro */}
         {tab === "retiro" && (
@@ -276,10 +410,12 @@ export function MobileHome({ nombre, zonaNombre, personalId, profileId, veterina
               </datalist>
               {vetSel && (
                 <div className="mt-2 flex flex-col gap-1.5 bg-g50 border border-g200 rounded-[10px] px-3 py-2.5">
-                  <div className="flex items-center gap-2 text-[13px] font-semibold text-gy900">
-                    <i className="ti ti-building-store text-[15px] text-g600" />
-                    <span className="flex-1">{vetSel.nombre}</span>
-                    <span className="font-mono text-[11px] text-gy500">{vetSel.codigo}</span>
+                  <div className="flex items-center gap-2">
+                    <i className="ti ti-building-store text-[17px] text-g600 shrink-0" />
+                    <div className="min-w-0 flex-1">
+                      <div className="font-mono text-[18px] font-bold text-gy900 leading-tight">{vetSel.codigo || "S/C"}</div>
+                      <div className="text-[12px] text-gy500 truncate">{vetSel.nombre}</div>
+                    </div>
                   </div>
                   {vetSel.telefono && (
                     <a href={`tel:${vetSel.telefono.replace(/\s+/g, "")}`}
@@ -376,12 +512,13 @@ export function MobileHome({ nombre, zonaNombre, personalId, profileId, veterina
               return (
                 <div key={p.id} className="bg-white border border-blue-200 border-l-4 border-l-blue-500 rounded-[12px] px-3.5 py-3 shadow-sm">
                   <div className="flex items-start justify-between gap-2">
-                    <div className="text-[14px] font-semibold text-gy900">{p.veterinaria_nombre}</div>
-                    {p.urgente && <span className="text-[9px] font-bold bg-red-500 text-white rounded-full px-2 py-0.5">URGENTE</span>}
+                    <div className="min-w-0 flex-1">
+                      <div className="font-mono text-[18px] font-bold text-gy900 leading-tight">{p.veterinaria_codigo || "S/C"}</div>
+                      <div className="text-[12px] text-gy500 truncate">{p.veterinaria_nombre}</div>
+                    </div>
+                    {p.urgente && <span className="text-[9px] font-bold bg-red-500 text-white rounded-full px-2 py-0.5 shrink-0">URGENTE</span>}
                   </div>
-                  <div className="text-[11px] text-gy500 mt-1">
-                    {p.veterinaria_codigo ? `Código: ${p.veterinaria_codigo} · ` : ""}Hace {hace}
-                  </div>
+                  <div className="text-[11px] text-gy400 mt-1">Hace {hace}</div>
                   {p.detalle && <div className="text-[11px] text-gy500 mt-0.5">{p.detalle}</div>}
                   <button onClick={() => abrirPedido(p)}
                     className="w-full mt-2.5 flex items-center justify-center gap-1.5 py-2.5 bg-blue-500 hover:bg-blue-600 text-white text-[13px] font-semibold rounded-[10px] transition-colors">
