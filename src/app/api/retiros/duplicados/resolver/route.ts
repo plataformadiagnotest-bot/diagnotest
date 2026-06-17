@@ -31,7 +31,7 @@ export async function POST(req: Request) {
   // si otro perfil ya lo resolvió, esta llamada no afecta nada.
   const { data: retiro } = await admin
     .from("retiros")
-    .select("id, estado")
+    .select("id, estado, comprobante_url")
     .eq("id", id)
     .single();
 
@@ -41,12 +41,24 @@ export async function POST(req: Request) {
   }
 
   // confirmar = es válido (no es duplicado) → vuelve a 'registrado'.
-  // anular    = es un duplicado real        → se anula.
-  const update = accion === "confirmar"
-    ? { estado: "registrado" }
-    : { estado: "anulado", anulado: true };
+  if (accion === "confirmar") {
+    const { error } = await admin.from("retiros").update({ estado: "registrado" }).eq("id", id);
+    if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+    return NextResponse.json({ ok: true });
+  }
 
-  const { error } = await admin.from("retiros").update(update).eq("id", id);
+  // anular = es un duplicado real → se elimina definitivamente (cascada a sus
+  // controles) para que desaparezca por completo, no solo marcarlo anulado.
+  if (retiro.comprobante_url) {
+    const marker = "/comprobantes/";
+    const idx = (retiro.comprobante_url as string).indexOf(marker);
+    if (idx !== -1) {
+      const path = (retiro.comprobante_url as string).slice(idx + marker.length);
+      await admin.storage.from("comprobantes").remove([path]).catch(() => {});
+    }
+  }
+
+  const { error } = await admin.from("retiros").delete().eq("id", id);
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
 
   return NextResponse.json({ ok: true });
