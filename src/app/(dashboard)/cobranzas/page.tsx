@@ -7,11 +7,13 @@ import { fmtMoneySign } from "@/lib/utils/format";
 export default async function CobranzasPage() {
   const supabase = await createClient();
 
+  // !inner + filtros sobre el retiro: no se muestran (ni suman) los duplicados
+  // sospechosos ni los anulados; cobranzas solo trabaja retiros válidos.
   const { data: controles } = await supabase
     .from("control_cobranzas")
     .select(`
       *,
-      retiro:retiro_id(
+      retiro:retiro_id!inner(
         id, importe_declarado, urgente, fecha_operativa, timestamp_carga, comentarios,
         veterinaria_texto_original, codigo_original, comprobante_url, metodo_pago,
         personal:personal_id(nombre),
@@ -19,6 +21,8 @@ export default async function CobranzasPage() {
       )
     `)
     .eq("estado", "pendiente")
+    .eq("retiro.anulado", false)
+    .neq("retiro.estado", "duplicado_sospechoso")
     .order("created_at", { ascending: true });
 
   const totalPendiente = controles?.reduce((s, c) => s + ((c.retiro as any)?.importe_declarado ?? 0), 0) ?? 0;

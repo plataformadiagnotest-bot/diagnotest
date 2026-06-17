@@ -28,6 +28,7 @@ export default async function PorPersonalPage({
     .eq("personal_id", selectedId)
     .eq("fecha_operativa", fecha)
     .eq("anulado", false)
+    .neq("estado", "duplicado_sospechoso" as never)
     .order("timestamp_carga", { ascending: true });
 
   const muestras = retiros?.reduce((s, r) => s + (r.cantidad_muestras ?? 0), 0) ?? 0;

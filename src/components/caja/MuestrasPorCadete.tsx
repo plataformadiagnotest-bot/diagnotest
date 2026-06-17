@@ -10,7 +10,8 @@ export async function MuestrasPorCadete({ fecha }: { fecha?: string }) {
     .from("retiros")
     .select("personal_id, cantidad_muestras, personal:personal_id(nombre)")
     .eq("fecha_operativa", dia)
-    .eq("anulado", false);
+    .eq("anulado", false)
+    .neq("estado", "duplicado_sospechoso" as never);
 
   const map = new Map<string, { nombre: string; total: number }>();
   for (const r of retiros ?? []) {
