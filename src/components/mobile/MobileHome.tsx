@@ -4,6 +4,7 @@ import { useState, useRef, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useOffline } from "@/lib/hooks/useOffline";
+import { useSync } from "@/lib/hooks/useSync";
 import { saveRetiroOffline, addToSyncQueue, getRetirosOffline } from "@/lib/offline/indexeddb";
 import { toast } from "@/components/ui/ToastNotification";
 import { todayISO, nowISO } from "@/lib/utils/dates";
@@ -29,6 +30,10 @@ type Tab = "resumen" | "retiro" | "pedidos" | "gastos";
 export function MobileHome({ nombre, zonaNombre, personalId, profileId, veterinarias, pedidos, retirosHoy }: Props) {
   const router = useRouter();
   const { isOffline } = useOffline();
+  // El layout del cadete no monta Topbar/DashboardShell, así que la cola de
+  // sincronización se dispara desde acá: al reconectarse (o al abrir la app ya
+  // online) se sube todo lo que quedó pendiente offline.
+  const { pendingCount, isSyncing, lastSynced, sync } = useSync();
   const supabase = createClient();
 
   const [tab, setTab] = useState<Tab>("resumen");
@@ -92,6 +97,15 @@ export function MobileHome({ nombre, zonaNombre, personalId, profileId, veterina
     return () => { supabase.removeChannel(channel); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [personalId]);
+
+  // Al terminar de subir la cola pendiente, avisa y refresca el resumen.
+  useEffect(() => {
+    if (lastSynced && lastSynced > 0) {
+      toast("success", `${lastSynced} registro${lastSynced > 1 ? "s" : ""} sincronizado${lastSynced > 1 ? "s" : ""} ✓`);
+      router.refresh();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lastSynced]);
 
   // ── Retiro form ─────────────────────────────────────────────
   const [vetTexto, setVetTexto] = useState("");
@@ -299,9 +313,20 @@ export function MobileHome({ nombre, zonaNombre, personalId, profileId, veterina
 
       <div className="flex-1 px-4 py-4 space-y-3.5">
         {/* Sync status */}
-        <div className={`flex items-center gap-2 text-[12px] font-medium px-3.5 py-2.5 rounded-[10px] ${isOffline ? "bg-amber/15 text-amber-text" : "bg-g50 text-g700"}`}>
-          <span className={`w-2 h-2 rounded-full ${isOffline ? "bg-amber" : "bg-g500"}`} />
-          {isOffline ? "Sin conexión · los retiros se guardan en el dispositivo" : "Conectado · sincronización automática"}
+        <div className={`flex items-center gap-2 text-[12px] font-medium px-3.5 py-2.5 rounded-[10px] ${isOffline ? "bg-amber/15 text-amber-text" : pendingCount > 0 ? "bg-blue-50 text-blue-700" : "bg-g50 text-g700"}`}>
+          <span className={`w-2 h-2 rounded-full ${isOffline ? "bg-amber" : isSyncing ? "bg-blue-400 animate-pulse" : pendingCount > 0 ? "bg-blue-400" : "bg-g500"}`} />
+          <span className="flex-1">
+            {isOffline
+              ? `Sin conexión · ${pendingCount} pendiente${pendingCount !== 1 ? "s" : ""} en el dispositivo`
+              : isSyncing
+                ? "Sincronizando…"
+                : pendingCount > 0
+                  ? `${pendingCount} sin sincronizar`
+                  : "Conectado · sincronización automática"}
+          </span>
+          {!isOffline && !isSyncing && pendingCount > 0 && (
+            <button onClick={() => sync()} className="text-[11px] font-semibold underline shrink-0">Reintentar</button>
+          )}
         </div>
 
         {/* Banner pedidos */}
