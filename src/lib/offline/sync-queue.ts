@@ -4,6 +4,7 @@ import {
   getSyncQueue,
   removeSyncQueueItem,
   incrementSyncAttempts,
+  deleteRetiroOffline,
 } from "./indexeddb";
 
 const MAX_ATTEMPTS = 5;
@@ -31,6 +32,12 @@ export async function processSyncQueue(
 
       if (res.ok) {
         await removeSyncQueueItem(item.id);
+        // El retiro ya está en el servidor: borramos su copia local para que el
+        // resumen deje de mostrarlo como "pendiente" desde IndexedDB.
+        if (item.table === "retiros" && item.action === "create") {
+          const rid = (item.data as { id?: string })?.id;
+          if (rid) await deleteRetiroOffline(rid).catch(() => {});
+        }
         synced++;
         onProgress?.(synced, queue.length);
       } else {

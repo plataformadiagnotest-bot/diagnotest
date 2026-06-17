@@ -19,7 +19,9 @@ export async function POST(request: NextRequest) {
         const data = item.table === "retiros"
           ? { ...(item.data as Record<string, unknown>), sincronizado: true }
           : item.data;
-        const { error } = await db.insert(data);
+        // Idempotente: si un reintento reenvía un id ya insertado, lo ignora en
+        // vez de fallar por clave duplicada (eso dejaba la cola trabada).
+        const { error } = await db.upsert(data, { onConflict: "id", ignoreDuplicates: true });
         if (error) return NextResponse.json({ error: error.message }, { status: 400 });
         break;
       }
