@@ -6,9 +6,10 @@ import { ControlCard } from "@/components/ui/ControlCard";
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyRecord = Record<string, any>;
 
-type Filtro = "personal" | "todos" | "urgentes" | "veterinaria" | "observados";
+type Filtro = "fecha" | "personal" | "todos" | "urgentes" | "veterinaria" | "observados";
 
 const FILTROS: { id: Filtro; label: string }[] = [
+  { id: "fecha", label: "Por fecha" },
   { id: "personal", label: "Por personal" },
   { id: "todos", label: "Todos" },
   { id: "urgentes", label: "Urgentes primero" },
@@ -18,8 +19,23 @@ const FILTROS: { id: Filtro; label: string }[] = [
 
 const esUrgente = (c: AnyRecord) => c.urgente || c.retiro?.urgente;
 
+// Encabezado legible para los grupos por fecha: "Hoy", "Ayer" o la fecha formateada.
+function etiquetaFecha(iso: string): string {
+  if (!iso || iso === "Sin fecha") return "Sin fecha";
+  const hoy = new Date();
+  const ayer = new Date();
+  ayer.setDate(hoy.getDate() - 1);
+  const f = (d: Date) => d.toISOString().split("T")[0];
+  if (iso === f(hoy)) return "Hoy";
+  if (iso === f(ayer)) return "Ayer";
+  const [y, m, d] = iso.split("-");
+  return new Date(Number(y), Number(m) - 1, Number(d)).toLocaleDateString("es-AR", {
+    weekday: "long", day: "numeric", month: "long",
+  });
+}
+
 export function PreanaliticaBandeja({ controles }: { controles: AnyRecord[] }) {
-  const [filtro, setFiltro] = useState<Filtro>("personal");
+  const [filtro, setFiltro] = useState<Filtro>("fecha");
   const [busqueda, setBusqueda] = useState("");
 
   const observadosCount = useMemo(() => controles.filter((c) => c.estado === "observado").length, [controles]);
@@ -46,20 +62,25 @@ export function PreanaliticaBandeja({ controles }: { controles: AnyRecord[] }) {
     return arr;
   }, [filtrados, filtro]);
 
-  // Agrupación (para "Por personal" y "Por veterinaria").
+  // Agrupación (para "Por fecha", "Por personal" y "Por veterinaria").
   const grupos = useMemo(() => {
-    if (filtro !== "personal" && filtro !== "veterinaria") return null;
+    if (filtro !== "fecha" && filtro !== "personal" && filtro !== "veterinaria") return null;
     const key = (c: AnyRecord) =>
-      filtro === "personal"
-        ? c.retiro?.personal?.nombre ?? "Sin asignar"
-        : c.retiro?.veterinaria_texto_original ?? "Sin veterinaria";
+      filtro === "fecha"
+        ? c.retiro?.fecha_operativa ?? "Sin fecha"
+        : filtro === "personal"
+          ? c.retiro?.personal?.nombre ?? "Sin asignar"
+          : c.retiro?.veterinaria_texto_original ?? "Sin veterinaria";
     const map = new Map<string, AnyRecord[]>();
     for (const c of filtrados) {
       const k = key(c);
       if (!map.has(k)) map.set(k, []);
       map.get(k)!.push(c);
     }
-    return Array.from(map.entries()).sort((a, b) => a[0].localeCompare(b[0], "es"));
+    const entries = Array.from(map.entries());
+    // Por fecha: más reciente primero. Resto: alfabético.
+    if (filtro === "fecha") return entries.sort((a, b) => b[0].localeCompare(a[0]));
+    return entries.sort((a, b) => a[0].localeCompare(b[0], "es"));
   }, [filtrados, filtro]);
 
   return (
@@ -98,7 +119,10 @@ export function PreanaliticaBandeja({ controles }: { controles: AnyRecord[] }) {
         ? grupos.map(([nombre, items]) => (
             <div key={nombre} className="space-y-3.5">
               <div className="flex items-center gap-2 pt-1">
-                <span className="text-[12px] font-semibold text-gy700">{nombre}</span>
+                {filtro === "fecha" && <i className="ti ti-calendar text-[13px] text-g600" />}
+                <span className="text-[12px] font-semibold text-gy700 capitalize">
+                  {filtro === "fecha" ? etiquetaFecha(nombre) : nombre}
+                </span>
                 <span className="text-[11px] text-gy400">({items.length})</span>
                 <div className="flex-1 h-px bg-gy100" />
               </div>

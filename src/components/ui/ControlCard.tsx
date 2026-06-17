@@ -309,7 +309,8 @@ export function ControlCard({ control, tipo }: Props) {
                 : preEtiquetas.length === 0 && <div className="text-[12px] text-gy400 italic">Sin etiquetas ni comentarios de preanalítica</div>}
             </div>
 
-            <div className="grid grid-cols-3 gap-2.5 mb-3">
+            {/* Sin select de Estado: las acciones de abajo (Adjudicado / Observar / Diferencia) ya lo definen. */}
+            <div className="grid grid-cols-2 gap-2.5 mb-3">
               <div>
                 <div className="text-[10px] font-semibold uppercase tracking-wide text-gy400 mb-1">Importe validado</div>
                 <input type="number" step="0.01"
@@ -321,16 +322,6 @@ export function ControlCard({ control, tipo }: Props) {
                 <div className="w-full px-2.5 py-1.5 border-2 border-gy100 rounded-[6px] text-[12px] bg-gy50 text-gy600 capitalize">
                   {METODO_PAGO_LABEL[retiro?.metodo_pago as string] ?? "—"}
                 </div>
-              </div>
-              <div>
-                <div className="text-[10px] font-semibold uppercase tracking-wide text-gy400 mb-1">Estado</div>
-                <select className="w-full px-2.5 py-1.5 border-2 border-gy200 rounded-[6px] text-[12px] bg-gy50 focus:outline-none focus:border-g500"
-                  value={estado} onChange={(e) => setEstado(e.target.value)}>
-                  <option value="pendiente">Pendiente</option>
-                  <option value="adjudicado">Adjudicado</option>
-                  <option value="diferencia">Diferencia</option>
-                  <option value="no_corresponde">No corresponde</option>
-                </select>
               </div>
             </div>
           </>
