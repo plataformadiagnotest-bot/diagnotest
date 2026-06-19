@@ -53,7 +53,7 @@ export default async function InicioPage() {
       `)
       .eq("personal_asignado_id", personalId)
       .in("estado", ["asignado", "en_proceso"])
-      .order("fecha_limite", { ascending: true });
+      .order("created_at", { ascending: true });
 
     pedidos = (data ?? []).map((p) => {
       const vet = p.veterinaria as { id?: string; nombre?: string; codigo?: string } | null;

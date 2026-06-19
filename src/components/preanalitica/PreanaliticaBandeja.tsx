@@ -36,22 +36,27 @@ function etiquetaFecha(iso: string): string {
 
 export function PreanaliticaBandeja({ controles }: { controles: AnyRecord[] }) {
   const [filtro, setFiltro] = useState<Filtro>("fecha");
-  const [busqueda, setBusqueda] = useState("");
+  const [qCadete, setQCadete] = useState("");
+  const [qVete, setQVete] = useState("");
 
   const observadosCount = useMemo(() => controles.filter((c) => c.estado === "observado").length, [controles]);
 
-  // Filtra por texto en cadete / veterinaria / código (y por estado observado).
+  // Dos buscadores independientes: uno por cadete y otro por veterinaria/código.
+  // Se pueden combinar (ej.: cadete "Emily" + veterinaria que trajo).
   const filtrados = useMemo(() => {
-    const q = busqueda.trim().toLowerCase();
+    const qc = qCadete.trim().toLowerCase();
+    const qv = qVete.trim().toLowerCase();
     let base = controles;
     if (filtro === "observados") base = base.filter((c) => c.estado === "observado");
-    if (!q) return base;
+    if (!qc && !qv) return base;
     return base.filter((c) => {
       const r = c.retiro ?? {};
-      return [r.personal?.nombre, r.veterinaria_texto_original, r.codigo_original]
-        .some((v) => String(v ?? "").toLowerCase().includes(q));
+      const okCadete = !qc || String(r.personal?.nombre ?? "").toLowerCase().includes(qc);
+      const okVete = !qv || [r.veterinaria_texto_original, r.codigo_original]
+        .some((v) => String(v ?? "").toLowerCase().includes(qv));
+      return okCadete && okVete;
     });
-  }, [controles, busqueda, filtro]);
+  }, [controles, qCadete, qVete, filtro]);
 
   // Lista plana ordenada (para "Todos" y "Urgentes primero").
   const planos = useMemo(() => {
@@ -86,13 +91,23 @@ export function PreanaliticaBandeja({ controles }: { controles: AnyRecord[] }) {
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-2 flex-wrap">
-        <div className="relative flex-1 min-w-[220px] max-w-[360px]">
-          <i className="ti ti-search absolute left-3 top-1/2 -translate-y-1/2 text-gy400 text-[14px]" />
+        <div className="relative flex-1 min-w-[170px] max-w-[260px]">
+          <i className="ti ti-user absolute left-3 top-1/2 -translate-y-1/2 text-gy400 text-[14px]" />
           <input
             type="text"
-            value={busqueda}
-            onChange={(e) => setBusqueda(e.target.value)}
-            placeholder="Buscar por cadete, veterinaria o código…"
+            value={qCadete}
+            onChange={(e) => setQCadete(e.target.value)}
+            placeholder="Buscar por cadete…"
+            className="w-full pl-8 pr-3 py-1.5 border-2 border-gy200 rounded-[8px] text-[12px] bg-gy50 focus:outline-none focus:border-g500 focus:bg-white"
+          />
+        </div>
+        <div className="relative flex-1 min-w-[170px] max-w-[260px]">
+          <i className="ti ti-building-store absolute left-3 top-1/2 -translate-y-1/2 text-gy400 text-[14px]" />
+          <input
+            type="text"
+            value={qVete}
+            onChange={(e) => setQVete(e.target.value)}
+            placeholder="Buscar por veterinaria o código…"
             className="w-full pl-8 pr-3 py-1.5 border-2 border-gy200 rounded-[8px] text-[12px] bg-gy50 focus:outline-none focus:border-g500 focus:bg-white"
           />
         </div>
@@ -111,7 +126,7 @@ export function PreanaliticaBandeja({ controles }: { controles: AnyRecord[] }) {
 
       {!filtrados.length && (
         <div className="py-12 text-center text-gy400">
-          {busqueda.trim() ? "Sin resultados para la búsqueda" : "Sin retiros pendientes de control"}
+          {qCadete.trim() || qVete.trim() ? "Sin resultados para la búsqueda" : "Sin retiros pendientes de control"}
         </div>
       )}
 
