@@ -9,7 +9,7 @@ create extension if not exists "uuid-ossp";
 -- ── ENUMS ──────────────────────────────────────────────────
 create type user_role as enum (
   'personal_logistica', 'jefe_logistica', 'preanalitica',
-  'cobranzas', 'dueno', 'super_admin'
+  'cobranzas', 'dueno', 'super_admin', 'carga'
 );
 create type tipo_personal as enum ('fijo', 'reemplazo', 'ventanilla');
 create type tipo_retiro as enum ('veterinaria', 'ventanilla', 'reemplazo', 'otro');
@@ -127,6 +127,11 @@ create table control_preanalitica (
   urgente        boolean not null default false,
   detalle        text,
   responsable_id uuid references profiles(id) on delete set null,
+  cancelado        boolean not null default false,
+  cancelado_motivo text,
+  cancelado_por    uuid references profiles(id) on delete set null,
+  cancelado_at     timestamptz,
+  comentario       text,
   created_at     timestamptz not null default now(),
   updated_at     timestamptz not null default now()
 );
@@ -333,6 +338,10 @@ create policy "Personal see own pre" on control_preanalitica for select
   ));
 create policy "Pre update" on control_preanalitica for update
   using (get_my_role() in ('preanalitica', 'super_admin'));
+create policy "Cob read pre" on control_preanalitica for select
+  using (get_my_role() = 'cobranzas');
+create policy "Carga read pre" on control_preanalitica for select
+  using (get_my_role() = 'carga');
 
 -- CONTROL COBRANZAS policies
 create policy "Cob read" on control_cobranzas for select

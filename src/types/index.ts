@@ -4,7 +4,8 @@ export type UserRole =
   | "preanalitica"
   | "cobranzas"
   | "dueno"
-  | "super_admin";
+  | "super_admin"
+  | "carga";
 
 export type TipoPersonal = "fijo" | "reemplazo" | "ventanilla";
 
@@ -125,6 +126,11 @@ export interface ControlPreanalitica {
   urgente: boolean;
   detalle: string | null;
   responsable_id: string | null;
+  cancelado: boolean;
+  cancelado_motivo: string | null;
+  cancelado_por: string | null;
+  cancelado_at: string | null;
+  comentario: string | null;
   created_at: string;
   updated_at: string;
   responsable?: Profile;

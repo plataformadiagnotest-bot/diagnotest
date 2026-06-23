@@ -17,6 +17,8 @@ export function landingPathForRole(rol: string | null | undefined): string {
       return "/preanalitica";
     case "cobranzas":
       return "/cobranzas";
+    case "carga":
+      return "/carga";
     case "dueno":
     case "super_admin":
       return "/dashboard";

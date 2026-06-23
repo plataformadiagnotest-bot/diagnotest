@@ -46,6 +46,12 @@ function getNavItems(rol: string): NavItem[] {
         { href: "/cobranzas", label: "Pendientes", icon: "ti-inbox", badge: 8 },
         { href: "/cobranzas/validados", label: "Validados", icon: "ti-circle-check" },
         { href: "/cobranzas/diferencias", label: "Diferencias", icon: "ti-alert-triangle", badge: 2 },
+        { href: "/cancelados", label: "Cancelados / Anulados", icon: "ti-ban", badgeClass: "default" },
+      ];
+    case "carga":
+      return [
+        { href: "/carga", label: "Controlados", icon: "ti-clipboard-check" },
+        { href: "/cancelados", label: "Cancelados / Anulados", icon: "ti-ban", badgeClass: "default" },
       ];
     case "dueno":
       return [
@@ -94,6 +100,7 @@ export function Sidebar({ profile, onNavigate }: Props) {
   const [dupCount, setDupCount] = useState(0);
   const [pedidosCount, setPedidosCount] = useState(0);
   const [gastosCount, setGastosCount] = useState(0);
+  const [cancelCount, setCancelCount] = useState(0);
 
   const rol = profile.rol;
   const refreshBadges = useCallback(() => {
@@ -125,6 +132,15 @@ export function Sidebar({ profile, onNavigate }: Props) {
         .select("id", { count: "exact", head: true })
         .eq("estado", "pendiente")
         .then(({ count }) => setGastosCount(count ?? 0));
+    }
+
+    // Cancelados / anulados por preanalítica (aviso para cobranzas y carga).
+    if (["cobranzas", "carga", "preanalitica", "super_admin", "dueno"].includes(rol)) {
+      supabase
+        .from("control_preanalitica")
+        .select("id", { count: "exact", head: true })
+        .or("cancelado.eq.true,etiquetas.cs.{Anula}")
+        .then(({ count }) => setCancelCount(count ?? 0));
     }
   }, [rol]);
 
@@ -167,6 +183,7 @@ export function Sidebar({ profile, onNavigate }: Props) {
             item.href === "/retiros/duplicados" ? (dupCount || undefined)
             : item.href === "/pedidos" ? (pedidosCount || undefined)
             : item.href === "/gastos/autorizar" ? (gastosCount || undefined)
+            : item.href === "/cancelados" ? (cancelCount || undefined)
             : item.badge;
           return (
             <Link

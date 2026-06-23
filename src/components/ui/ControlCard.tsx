@@ -82,6 +82,10 @@ export function ControlCard({ control, tipo }: Props) {
   const preEtiquetas: string[] = pre?.etiquetas ?? [];
   const preDetalle: string = pre?.detalle ?? "";
   const preEstado: string = pre?.estado ?? "pendiente";
+  const preComentario: string = pre?.comentario ?? "";
+  const preCancelado: boolean = !!pre?.cancelado;
+  const preAnulado: boolean = preEtiquetas.some((e) => /anul/i.test(e));
+  const preRojo: boolean = preCancelado || preAnulado;
   const PRE_ESTADO_LABEL: Record<string, string> = {
     pendiente: "Pendiente de control",
     ok: "Controlado OK",
@@ -356,6 +360,19 @@ export function ControlCard({ control, tipo }: Props) {
         {/* Controls (solo cobranzas) */}
         {tipo === "cob" && (
           <>
+            {preRojo && (
+              <div className="mb-3 rounded-[8px] border border-red-300 bg-red-50 px-3 py-2.5">
+                <div className="flex items-center gap-1.5">
+                  <i className="ti ti-ban text-[14px] text-red-600" />
+                  <span className="text-[11px] font-bold uppercase tracking-wide text-red-700">
+                    {preCancelado ? "Cancelado por preanalítica" : "Anulado"}
+                  </span>
+                </div>
+                {preCancelado && pre?.cancelado_motivo && (
+                  <div className="text-[12px] text-red-700 mt-1">Motivo: {pre.cancelado_motivo}</div>
+                )}
+              </div>
+            )}
             <div className="mb-3 rounded-[8px] border border-gy200 bg-gy50 px-3 py-2.5">
               <div className="flex items-center gap-1.5 mb-1.5">
                 <i className="ti ti-clipboard-check text-[13px] text-g600" />
@@ -373,7 +390,13 @@ export function ControlCard({ control, tipo }: Props) {
               )}
               {preDetalle
                 ? <div className="text-[12px] text-gy700">{preDetalle}</div>
-                : preEtiquetas.length === 0 && <div className="text-[12px] text-gy400 italic">Sin etiquetas ni comentarios de preanalítica</div>}
+                : preEtiquetas.length === 0 && !preComentario && <div className="text-[12px] text-gy400 italic">Sin etiquetas ni comentarios de preanalítica</div>}
+              {preComentario && (
+                <div className="mt-1.5 flex items-start gap-1.5 text-[12px] text-gy700">
+                  <i className="ti ti-message-2 text-[13px] text-g600 mt-0.5" />
+                  <span>{preComentario}</span>
+                </div>
+              )}
             </div>
 
             {/* Cobranzas solo adjudica: la validación del monto se hace en Control de Caja. */}
