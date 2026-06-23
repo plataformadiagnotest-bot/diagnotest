@@ -1,5 +1,6 @@
 import { EtiquetasChips } from "@/components/preanalitica/EtiquetasChips";
 import { ControlValor } from "@/components/preanalitica/ControlValor";
+import { AdjuntosPreanalitica } from "@/components/preanalitica/AdjuntosPreanalitica";
 import { formatDateTime } from "@/lib/utils/dates";
 import { esCanceladoOAnulado, etiquetaRojo } from "@/lib/utils/preanalitica";
 
@@ -34,10 +35,8 @@ export function TablaControladosRO({
               const r = c.retiro as AnyRecord;
               const rojo = esCanceladoOAnulado(c);
               const tag = etiquetaRojo(c);
-              const adjuntos: { url: string; label: string }[] = [
-                ...(r?.comprobante_url ? [{ url: r.comprobante_url as string, label: "Ticket" }] : []),
-                ...(((c.fotos_urls ?? []) as string[]).map((u, i) => ({ url: u, label: `Foto ${i + 1}` }))),
-              ];
+              // Solo adjuntos de preanalítica (no los tickets de logística).
+              const fotosPre = (c.fotos_urls ?? []) as string[];
               return (
                 <tr key={c.id} className={`border-b border-gy100 last:border-0 ${rojo ? "bg-red-50" : ""}`}>
                   <td className="px-3.5 py-2.5 font-mono text-[11px] text-g700">
@@ -56,21 +55,7 @@ export function TablaControladosRO({
                       <div className="text-[10px] text-red-600 mt-0.5">Motivo: {c.cancelado_motivo}</div>
                     )}
                   </td>
-                  <td className="px-3.5 py-2.5">
-                    {adjuntos.length ? (
-                      <div className="flex flex-wrap gap-1.5">
-                        {adjuntos.map((a) => (
-                          <a key={a.url} href={a.url} target="_blank" rel="noopener noreferrer"
-                            title={a.label}
-                            className="inline-flex items-center gap-1 px-2 py-1 rounded-[6px] border border-gy200 text-g700 bg-white hover:bg-g50 text-[10px] font-medium whitespace-nowrap">
-                            <i className="ti ti-photo text-[12px]" /> {a.label}
-                          </a>
-                        ))}
-                      </div>
-                    ) : (
-                      <span className="text-gy300">—</span>
-                    )}
-                  </td>
+                  <td className="px-3.5 py-2.5 text-center"><AdjuntosPreanalitica fotos={fotosPre} /></td>
                   <td className="px-3.5 py-2.5 text-gy600">{c.responsable_id ? (nombrePorId.get(c.responsable_id) ?? "—") : "—"}</td>
                   <td className="px-3.5 py-2.5 text-gy600 whitespace-nowrap">{formatDateTime(c.updated_at)}</td>
                 </tr>
