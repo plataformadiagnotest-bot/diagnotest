@@ -1,3 +1,4 @@
+import { Fragment } from "react";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { Topbar } from "@/components/layout/Topbar";
@@ -5,12 +6,30 @@ import { PillStatus } from "@/components/ui/PillStatus";
 import { fmtMoneySign } from "@/lib/utils/format";
 import { formatDateTime } from "@/lib/utils/dates";
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type AnyRecord = Record<string, any>;
+
 const METODO_PAGO_LABEL: Record<string, string> = {
   efectivo: "Efectivo",
   transferencia: "Transferencia",
   mercado_pago: "Mercado Pago",
   mercadopago: "Mercado Pago",
 };
+
+// Etiqueta legible para el encabezado de cada día (Hoy / Ayer / fecha larga).
+function etiquetaFecha(iso: string): string {
+  if (!iso) return "Sin fecha";
+  const hoy = new Date();
+  const ayer = new Date();
+  ayer.setDate(hoy.getDate() - 1);
+  const f = (d: Date) => d.toISOString().slice(0, 10);
+  if (iso === f(hoy)) return "Hoy";
+  if (iso === f(ayer)) return "Ayer";
+  const [y, m, d] = iso.split("-").map(Number);
+  return new Date(y, m - 1, d).toLocaleDateString("es-AR", {
+    weekday: "long", day: "numeric", month: "long",
+  });
+}
 
 export default async function CobranzasValidadosPage({
   searchParams,
@@ -49,6 +68,31 @@ export default async function CobranzasValidadosPage({
     for (const p of profs ?? []) nombrePorId.set(p.id, p.nombre);
   }
 
+  // Agrupar por día → veterinaria, con subtotal de importe por veterinaria y total del día.
+  type Grupo = { vete: string; filas: AnyRecord[]; total: number };
+  type Dia = { fecha: string; vetes: Grupo[]; total: number };
+
+  const porDia = new Map<string, Map<string, Grupo>>();
+  for (const c of controles) {
+    const fecha = String(c.updated_at ?? "").slice(0, 10);
+    const r = c.retiro as AnyRecord;
+    const vete = (r?.veterinaria_texto_original ?? "Sin veterinaria").trim() || "Sin veterinaria";
+    if (!porDia.has(fecha)) porDia.set(fecha, new Map());
+    const vetes = porDia.get(fecha)!;
+    if (!vetes.has(vete)) vetes.set(vete, { vete, filas: [], total: 0 });
+    const g = vetes.get(vete)!;
+    g.filas.push(c);
+    g.total += Number(c.importe_declarado) || 0;
+  }
+
+  const dias: Dia[] = Array.from(porDia.entries())
+    .sort((a, b) => b[0].localeCompare(a[0])) // días más recientes primero
+    .map(([fecha, vetes]) => {
+      const grupos = Array.from(vetes.values()).sort((a, b) => a.vete.localeCompare(b.vete, "es"));
+      const total = grupos.reduce((s, g) => s + g.total, 0);
+      return { fecha, vetes: grupos, total };
+    });
+
   return (
     <div>
       <Topbar title="Cobranzas — Validados"
@@ -85,31 +129,60 @@ export default async function CobranzasValidadosPage({
             <table className="w-full border-collapse text-[12px]">
               <thead>
                 <tr className="bg-gy50">
-                  {["ID", "Fecha", "Personal", "Veterinaria", "Código", "Importe", "Medio", "Observación", "Autorizado por", "Estado"].map((h) => (
+                  {["Fecha", "Personal", "Veterinaria", "Código", "Importe", "Medio", "Observación", "Autorizado por", "Estado"].map((h) => (
                     <th key={h} className="px-3.5 py-2.5 text-left text-[10px] font-bold uppercase tracking-wide text-gy400 border-b border-gy200">{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
-                {(controles ?? []).map((c) => {
-                  const r = c.retiro as any;
-                  return (
-                    <tr key={c.id} className="hover:bg-gy50 border-b border-gy100 last:border-0">
-                      <td className="px-3.5 py-2.5 font-mono text-[11px] text-gy400">{r?.id?.slice(0, 8).toUpperCase()}</td>
-                      <td className="px-3.5 py-2.5 text-gy600 whitespace-nowrap">{formatDateTime(c.updated_at)}</td>
-                      <td className="px-3.5 py-2.5 font-medium">{r?.personal?.nombre ?? "—"}</td>
-                      <td className="px-3.5 py-2.5 max-w-[180px] truncate" title={r?.veterinaria_texto_original ?? ""}>{r?.veterinaria_texto_original ?? "—"}</td>
-                      <td className="px-3.5 py-2.5 font-mono text-[11px] text-gy500">{r?.codigo_original ?? "—"}</td>
-                      <td className="px-3.5 py-2.5 font-semibold text-g700">{fmtMoneySign(c.importe_declarado)}</td>
-                      <td className="px-3.5 py-2.5">{METODO_PAGO_LABEL[r?.metodo_pago as string] ?? "—"}</td>
-                      <td className="px-3.5 py-2.5 text-gy600 max-w-[200px] truncate" title={c.detalle ?? ""}>{c.detalle || "—"}</td>
-                      <td className="px-3.5 py-2.5 text-gy600">{c.responsable_id ? (nombrePorId.get(c.responsable_id) ?? "—") : "—"}</td>
-                      <td className="px-3.5 py-2.5"><PillStatus variant="ok" label="Adjudicado" /></td>
+                {dias.map((dia) => (
+                  <Fragment key={`dia-${dia.fecha}`}>
+                    {/* Encabezado del día con total general del día */}
+                    <tr className="bg-g800/[0.04]">
+                      <td colSpan={4} className="px-3.5 py-2 text-[12px] font-bold text-g800 border-b border-gy200 capitalize">
+                        {etiquetaFecha(dia.fecha)}
+                      </td>
+                      <td colSpan={5} className="px-3.5 py-2 text-[12px] font-bold text-g800 border-b border-gy200 text-right">
+                        Total día: {fmtMoneySign(dia.total)}
+                      </td>
                     </tr>
-                  );
-                })}
+                    {dia.vetes.map((g) => (
+                      <Fragment key={`vete-${dia.fecha}-${g.vete}`}>
+                        {/* Subtotal por veterinaria */}
+                        <tr className="bg-gy50">
+                          <td className="px-3.5 py-1.5 border-b border-gy100" />
+                          <td className="px-3.5 py-1.5 border-b border-gy100" />
+                          <td className="px-3.5 py-1.5 border-b border-gy100 font-semibold text-gy700" colSpan={2} title={g.vete}>
+                            <i className="ti ti-building-hospital text-[12px] mr-1 text-gy400" />{g.vete}
+                          </td>
+                          <td className="px-3.5 py-1.5 border-b border-gy100 font-bold text-g700">{fmtMoneySign(g.total)}</td>
+                          <td className="px-3.5 py-1.5 border-b border-gy100 text-[11px] text-gy400" colSpan={3}>
+                            {g.filas.length} retiro{g.filas.length !== 1 ? "s" : ""}
+                          </td>
+                        </tr>
+                        {/* Detalle por retiro */}
+                        {g.filas.map((c) => {
+                          const r = c.retiro as AnyRecord;
+                          return (
+                            <tr key={c.id} className="hover:bg-gy50 border-b border-gy100">
+                              <td className="px-3.5 py-2.5 text-gy600 whitespace-nowrap">{formatDateTime(c.updated_at)}</td>
+                              <td className="px-3.5 py-2.5 font-medium">{r?.personal?.nombre ?? "—"}</td>
+                              <td className="px-3.5 py-2.5 max-w-[180px] truncate text-gy500" title={r?.veterinaria_texto_original ?? ""}>{r?.veterinaria_texto_original ?? "—"}</td>
+                              <td className="px-3.5 py-2.5 font-mono text-[11px] text-gy500">{r?.codigo_original ?? "—"}</td>
+                              <td className="px-3.5 py-2.5 font-semibold text-g700">{fmtMoneySign(c.importe_declarado)}</td>
+                              <td className="px-3.5 py-2.5">{METODO_PAGO_LABEL[r?.metodo_pago as string] ?? "—"}</td>
+                              <td className="px-3.5 py-2.5 text-gy600 max-w-[200px] truncate" title={c.detalle ?? ""}>{c.detalle || "—"}</td>
+                              <td className="px-3.5 py-2.5 text-gy600">{c.responsable_id ? (nombrePorId.get(c.responsable_id) ?? "—") : "—"}</td>
+                              <td className="px-3.5 py-2.5"><PillStatus variant="ok" label="Adjudicado" /></td>
+                            </tr>
+                          );
+                        })}
+                      </Fragment>
+                    ))}
+                  </Fragment>
+                ))}
                 {!controles?.length && (
-                  <tr><td colSpan={10} className="py-10 text-center text-gy400">Sin validaciones en el período</td></tr>
+                  <tr><td colSpan={9} className="py-10 text-center text-gy400">Sin validaciones en el período</td></tr>
                 )}
               </tbody>
             </table>
