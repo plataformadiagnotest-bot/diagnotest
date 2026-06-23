@@ -148,23 +148,11 @@ export default async function CobranzasValidadosPage({
                     </tr>
                     {dia.vetes.map((g) => (
                       <Fragment key={`vete-${dia.fecha}-${g.vete}`}>
-                        {/* Subtotal por veterinaria */}
-                        <tr className="bg-gy50">
-                          <td className="px-3.5 py-1.5 border-b border-gy100" />
-                          <td className="px-3.5 py-1.5 border-b border-gy100" />
-                          <td className="px-3.5 py-1.5 border-b border-gy100 font-semibold text-gy700" colSpan={2} title={g.vete}>
-                            <i className="ti ti-building-hospital text-[12px] mr-1 text-gy400" />{g.vete}
-                          </td>
-                          <td className="px-3.5 py-1.5 border-b border-gy100 font-bold text-g700">{fmtMoneySign(g.total)}</td>
-                          <td className="px-3.5 py-1.5 border-b border-gy100 text-[11px] text-gy400" colSpan={3}>
-                            {g.filas.length} retiro{g.filas.length !== 1 ? "s" : ""}
-                          </td>
-                        </tr>
-                        {/* Detalle por retiro */}
+                        {/* Detalle por retiro (fondo blanco) */}
                         {g.filas.map((c) => {
                           const r = c.retiro as AnyRecord;
                           return (
-                            <tr key={c.id} className="hover:bg-gy50 border-b border-gy100">
+                            <tr key={c.id} className="bg-white hover:bg-gy50 border-b border-gy100">
                               <td className="px-3.5 py-2.5 text-gy600 whitespace-nowrap">{formatDateTime(c.updated_at)}</td>
                               <td className="px-3.5 py-2.5 font-medium">{r?.personal?.nombre ?? "—"}</td>
                               <td className="px-3.5 py-2.5 max-w-[180px] truncate text-gy500" title={r?.veterinaria_texto_original ?? ""}>{r?.veterinaria_texto_original ?? "—"}</td>
@@ -177,6 +165,19 @@ export default async function CobranzasValidadosPage({
                             </tr>
                           );
                         })}
+                        {/* Subtotal por veterinaria (debajo del grupo, color diferenciado) */}
+                        <tr className="bg-g50 border-b-2 border-gy200">
+                          <td className="px-3.5 py-1.5 text-[11px] font-semibold text-g700 uppercase tracking-wide" colSpan={2}>
+                            Subtotal
+                          </td>
+                          <td className="px-3.5 py-1.5 font-semibold text-g800" colSpan={2} title={g.vete}>
+                            <i className="ti ti-building-hospital text-[12px] mr-1 text-g500" />{g.vete}
+                          </td>
+                          <td className="px-3.5 py-1.5 font-bold text-g800">{fmtMoneySign(g.total)}</td>
+                          <td className="px-3.5 py-1.5 text-[11px] text-g600" colSpan={4}>
+                            {g.filas.length} retiro{g.filas.length !== 1 ? "s" : ""}
+                          </td>
+                        </tr>
                       </Fragment>
                     ))}
                   </Fragment>
