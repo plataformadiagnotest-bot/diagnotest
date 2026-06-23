@@ -2,6 +2,10 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { Topbar } from "@/components/layout/Topbar";
 import { TablaControladosRO } from "@/components/preanalitica/TablaControladosRO";
 
+// El cliente admin no lee cookies; sin esto Next.js cachea la consulta GET
+// y muestra datos viejos. Forzamos render dinámico y datos frescos.
+export const dynamic = "force-dynamic";
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyRecord = Record<string, any>;
 

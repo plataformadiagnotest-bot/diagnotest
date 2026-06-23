@@ -43,9 +43,9 @@ function getNavItems(rol: string): NavItem[] {
       ];
     case "cobranzas":
       return [
-        { href: "/cobranzas", label: "Pendientes", icon: "ti-inbox", badge: 8 },
+        { href: "/cobranzas", label: "Pendientes", icon: "ti-inbox", badgeClass: "amber" },
         { href: "/cobranzas/validados", label: "Validados", icon: "ti-circle-check" },
-        { href: "/cobranzas/diferencias", label: "Diferencias", icon: "ti-alert-triangle", badge: 2 },
+        { href: "/cobranzas/diferencias", label: "Diferencias", icon: "ti-alert-triangle", badgeClass: "amber" },
         { href: "/cancelados", label: "Cancelados / Anulados", icon: "ti-ban", badgeClass: "default" },
       ];
     case "carga":
@@ -101,6 +101,8 @@ export function Sidebar({ profile, onNavigate }: Props) {
   const [pedidosCount, setPedidosCount] = useState(0);
   const [gastosCount, setGastosCount] = useState(0);
   const [cancelCount, setCancelCount] = useState(0);
+  const [cobPendCount, setCobPendCount] = useState(0);
+  const [cobDifCount, setCobDifCount] = useState(0);
 
   const rol = profile.rol;
   const refreshBadges = useCallback(() => {
@@ -141,6 +143,22 @@ export function Sidebar({ profile, onNavigate }: Props) {
         .select("id", { count: "exact", head: true })
         .or("cancelado.eq.true,etiquetas.cs.{Anula}")
         .then(({ count }) => setCancelCount(count ?? 0));
+    }
+
+    // Pendientes y diferencias de cobranzas (conteos reales).
+    if (["cobranzas", "super_admin", "dueno"].includes(rol)) {
+      supabase
+        .from("control_cobranzas")
+        .select("id, retiro:retiro_id!inner(anulado, estado)", { count: "exact", head: true })
+        .eq("estado", "pendiente")
+        .eq("retiro.anulado", false)
+        .neq("retiro.estado", "duplicado_sospechoso")
+        .then(({ count }) => setCobPendCount(count ?? 0));
+      supabase
+        .from("control_cobranzas")
+        .select("id", { count: "exact", head: true })
+        .eq("estado", "diferencia")
+        .then(({ count }) => setCobDifCount(count ?? 0));
     }
   }, [rol]);
 
@@ -184,6 +202,8 @@ export function Sidebar({ profile, onNavigate }: Props) {
             : item.href === "/pedidos" ? (pedidosCount || undefined)
             : item.href === "/gastos/autorizar" ? (gastosCount || undefined)
             : item.href === "/cancelados" ? (cancelCount || undefined)
+            : item.href === "/cobranzas" ? (cobPendCount || undefined)
+            : item.href === "/cobranzas/diferencias" ? (cobDifCount || undefined)
             : item.badge;
           return (
             <Link
