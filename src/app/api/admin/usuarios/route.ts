@@ -7,6 +7,7 @@ const ROLES_VALIDOS = [
   "jefe_logistica",
   "preanalitica",
   "cobranzas",
+  "carga",
   "dueno",
   "super_admin",
 ] as const;

@@ -25,6 +25,7 @@ const ROLES: { value: string; label: string }[] = [
   { value: "jefe_logistica", label: "Jefe de logística" },
   { value: "preanalitica", label: "Preanalítica" },
   { value: "cobranzas", label: "Cobranzas" },
+  { value: "carga", label: "Carga" },
   { value: "dueno", label: "Dueño" },
   { value: "super_admin", label: "Super Admin" },
 ];
