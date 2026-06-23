@@ -16,6 +16,8 @@ export interface RendicionCadete {
   gastos: { descripcion: string; monto: number; tipo: string }[];
   totalGastos: number;
   efectivoEsperado: number;
+  fechaDesde: string | null;
+  fechaHasta: string | null;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   rendicion: any | null;
 }
@@ -255,6 +257,12 @@ function CadeteCard({ item, fecha, onSaved }: { item: RendicionCadete; fecha: st
   const yaDiferencia = r?.estado === "diferencia";
   const dif = Number(r?.diferencia ?? 0);
 
+  // Rango de fechas que abarca esta caja (formato DD/MM).
+  const fmtDiaCorto = (f: string) => { const [, m, d] = f.split("-"); return `${d}/${m}`; };
+  const rango = item.fechaDesde && item.fechaHasta
+    ? (item.fechaDesde === item.fechaHasta ? fmtDiaCorto(item.fechaDesde) : `${fmtDiaCorto(item.fechaDesde)} → ${fmtDiaCorto(item.fechaHasta)}`)
+    : null;
+
   return (
     <div className={`bg-white rounded-[14px] border shadow-sm overflow-hidden ${yaDiferencia ? "border-l-4 border-l-red-500 border-gy200" : yaValidado ? "border-l-4 border-l-g500 border-gy200" : "border-gy200"}`}>
       {/* Header */}
@@ -268,6 +276,11 @@ function CadeteCard({ item, fecha, onSaved }: { item: RendicionCadete; fecha: st
         {yaDiferencia && (
           <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-red-700 bg-red-50 border border-red-200 rounded-full px-2 py-0.5">
             <i className="ti ti-alert-triangle" /> Diferencia {dif >= 0 ? "+" : ""}{fmtMoneySign(dif)}
+          </span>
+        )}
+        {rango && (
+          <span className="inline-flex items-center gap-1 text-[11px] font-medium text-gy600 bg-white border border-gy200 rounded-full px-2 py-0.5">
+            <i className="ti ti-calendar text-[12px] text-gy400" /> {rango}
           </span>
         )}
         <span className="ml-auto text-[11px] text-gy400">

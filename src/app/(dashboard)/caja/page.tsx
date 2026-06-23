@@ -26,10 +26,10 @@ export default async function CajaPage({
   // (rendicion_id NULL), sin importar el día. El corte lo marca la validación.
   const [{ data: retiros }, { data: gastos }, { data: revisadosRaw }] = await Promise.all([
     admin.from("retiros")
-      .select("personal_id, importe_declarado, metodo_pago, personal:personal_id(nombre)")
+      .select("personal_id, importe_declarado, metodo_pago, fecha_operativa, personal:personal_id(nombre)")
       .is("rendicion_id", null).eq("anulado", false).lte("fecha_operativa", fecha),
     admin.from("gastos")
-      .select("personal_id, monto, descripcion, tipo, personal:personal_id(nombre)")
+      .select("personal_id, monto, descripcion, tipo, fecha_operativa, personal:personal_id(nombre)")
       .is("rendicion_id", null).lte("fecha_operativa", fecha),
     admin.from("rendiciones_caja")
       .select("*, personal:personal_id(nombre)")
@@ -48,10 +48,18 @@ export default async function CajaPage({
         totalEfectivo: 0, totalDigital: 0, totalRecaudado: 0,
         retirosEfectivo: 0, retirosDigital: 0,
         gastos: [], totalGastos: 0, efectivoEsperado: 0,
+        fechaDesde: null, fechaHasta: null,
         rendicion: null,
       });
     }
     return map.get(id)!;
+  };
+
+  // Amplía el rango de fechas (YYYY-MM-DD) que abarca la caja abierta del cadete.
+  const ampliarRango = (a: RendicionCadete, f: string | null | undefined) => {
+    if (!f) return;
+    if (!a.fechaDesde || f < a.fechaDesde) a.fechaDesde = f;
+    if (!a.fechaHasta || f > a.fechaHasta) a.fechaHasta = f;
   };
 
   for (const r of retiros ?? []) {
@@ -60,12 +68,14 @@ export default async function CajaPage({
     const m = Number(r.importe_declarado ?? 0);
     if (r.metodo_pago === "efectivo") { a.totalEfectivo += m; a.retirosEfectivo += 1; }
     else { a.totalDigital += m; a.retirosDigital += 1; }
+    ampliarRango(a, r.fecha_operativa);
   }
   for (const g of gastos ?? []) {
     const nombre = (g.personal as { nombre?: string } | null)?.nombre ?? "Sin nombre";
     const a = ensure(g.personal_id, nombre);
     a.gastos.push({ descripcion: g.descripcion, monto: Number(g.monto ?? 0), tipo: g.tipo });
     a.totalGastos += Number(g.monto ?? 0);
+    ampliarRango(a, g.fecha_operativa);
   }
   const items = Array.from(map.values()).sort((x, y) => x.nombre.localeCompare(y.nombre, "es"));
   for (const a of items) {
