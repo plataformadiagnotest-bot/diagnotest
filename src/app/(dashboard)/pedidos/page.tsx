@@ -8,6 +8,11 @@ import { PedidoActions } from "@/components/forms/PedidoActions";
 import { retiroResuelvePedido } from "@/lib/pedidos/match";
 import Link from "next/link";
 
+// El aviso "detectamos tu retiro" lee retiros con el cliente admin (service
+// role, sin cookie): esos fetch los cachearía Next.js y mostraría candidatos
+// viejos. Forzamos render dinámico para que el aviso refleje lo recién cargado.
+export const dynamic = "force-dynamic";
+
 export default async function PedidosPage() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();

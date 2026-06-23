@@ -6,6 +6,10 @@ import { esDireccion, landingPathForRole } from "@/lib/utils/roles";
 import { ControlCaja } from "@/components/caja/ControlCaja";
 import type { RendicionCadete, RevisadoRow } from "@/components/caja/ControlCaja";
 
+// Lee con cliente admin (service role, sin cookie): Next.js cachearía esos
+// fetch y mostraría cajas viejas tras validar. Forzamos render dinámico.
+export const dynamic = "force-dynamic";
+
 export default async function CajaPage({
   searchParams,
 }: {
