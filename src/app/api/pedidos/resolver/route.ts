@@ -1,22 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-
-// Normaliza un nombre de veterinaria para comparar (minúsculas, sin acentos,
-// espacios colapsados) y poder matchear aunque el cadete lo haya escrito a mano.
-function normVet(s: string | null | undefined): string {
-  return (s ?? "")
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "")
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
-// Fecha operativa (AR) de un timestamptz, en formato YYYY-MM-DD.
-function fechaAR(iso: string): string {
-  return new Date(iso).toLocaleDateString("en-CA", { timeZone: "America/Argentina/Buenos_Aires" });
-}
+import { fechaPedidoAR, retiroResuelvePedido } from "@/lib/pedidos/match";
 
 // El cadete marca un pedido como resuelto SOLO si el sistema encuentra, entre
 // sus retiros, uno que coincida en veterinaria y fecha. Evita resoluciones
@@ -55,8 +40,9 @@ export async function POST(req: Request) {
   if (pedido.estado === "resuelto") return NextResponse.json({ error: "El pedido ya estaba resuelto" }, { status: 400 });
   if (pedido.estado === "cancelado") return NextResponse.json({ error: "El pedido está cancelado" }, { status: 400 });
 
-  const pedidoFecha = fechaAR(pedido.created_at);
+  const pedidoFecha = fechaPedidoAR(pedido.created_at);
   const vetNombre = (pedido.veterinaria as { nombre?: string } | null)?.nombre ?? "";
+  const pedidoMatch = { veterinaria_id: pedido.veterinaria_id, vetNombre, created_at: pedido.created_at };
 
   // Candidatos: retiros del cadete asignado, no anulados, sin pedido vinculado,
   // de la fecha del pedido o posterior. Se elige el más reciente que coincida.
@@ -69,11 +55,7 @@ export async function POST(req: Request) {
     .gte("fecha_operativa", pedidoFecha)
     .order("created_at", { ascending: false });
 
-  const vetNorm = normVet(vetNombre);
-  const match = (candidatos ?? []).find((r) =>
-    (r.veterinaria_id && r.veterinaria_id === pedido.veterinaria_id) ||
-    (!!vetNorm && normVet(r.veterinaria_texto_original) === vetNorm)
-  );
+  const match = (candidatos ?? []).find((r) => retiroResuelvePedido(pedidoMatch, r));
 
   if (!match) {
     return NextResponse.json({

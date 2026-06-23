@@ -4,6 +4,7 @@ import { StatCard } from "@/components/ui/StatCard";
 import { PillStatus } from "@/components/ui/PillStatus";
 import { formatDateTime, formatDate } from "@/lib/utils/dates";
 import { PedidoActions } from "@/components/forms/PedidoActions";
+import { retiroResuelvePedido } from "@/lib/pedidos/match";
 import Link from "next/link";
 
 export default async function PedidosPage() {
@@ -16,19 +17,39 @@ export default async function PedidosPage() {
   let query = supabase
     .from("pedidos_retiro")
     .select(`
-      id, estado, urgente, detalle, fecha_limite, resuelto_en, reasignaciones, created_at,
+      id, estado, urgente, detalle, fecha_limite, resuelto_en, reasignaciones, created_at, veterinaria_id,
       veterinaria:veterinaria_id(nombre, codigo),
       personal_asignado:personal_asignado_id(nombre, id),
       creado_por:creado_por_id(nombre)
     `)
     .order("created_at", { ascending: false });
 
+  let persId: string | null = null;
   if (isPersonal) {
     const { data: pers } = await supabase.from("personal").select("id").eq("profile_id", user!.id).single();
-    if (pers) query = query.eq("personal_asignado_id", pers.id);
+    persId = pers?.id ?? null;
+    if (persId) query = query.eq("personal_asignado_id", persId);
   }
 
   const { data: pedidos } = await query;
+
+  // Para el cadete: detectar qué pedidos abiertos ya tienen un retiro suyo que
+  // coincide (veterinaria + fecha), para mostrar el aviso verde anticipado.
+  const pedidoConMatch = new Set<string>();
+  if (isPersonal && persId) {
+    const { data: candidatos } = await supabase
+      .from("retiros")
+      .select("fecha_operativa, veterinaria_id, veterinaria_texto_original, created_at")
+      .eq("personal_id", persId)
+      .is("pedido_id", null)
+      .eq("anulado", false);
+    for (const p of pedidos ?? []) {
+      if (p.estado === "resuelto" || p.estado === "cancelado") continue;
+      const vetNombre = (p.veterinaria as { nombre?: string } | null)?.nombre;
+      const pm = { veterinaria_id: p.veterinaria_id, vetNombre, created_at: p.created_at };
+      if ((candidatos ?? []).some((r) => retiroResuelvePedido(pm, r))) pedidoConMatch.add(p.id);
+    }
+  }
 
   const activos = pedidos?.filter((p) => p.estado === "asignado" || p.estado === "en_proceso") ?? [];
   const vencidos = pedidos?.filter((p) => p.estado === "vencido") ?? [];
@@ -139,7 +160,7 @@ export default async function PedidosPage() {
                       </span>
                     </div>
                   ) : (
-                    <PedidoActions pedidoId={p.id} estado={p.estado} isPersonal={isPersonal} />
+                    <PedidoActions pedidoId={p.id} estado={p.estado} isPersonal={isPersonal} hasMatch={pedidoConMatch.has(p.id)} />
                   )}
 
                   {isVencido && (

@@ -10,11 +10,12 @@ interface Props {
   pedidoId: string;
   estado?: string; // reserved for future conditional rendering
   isPersonal: boolean;
+  hasMatch?: boolean; // el sistema detectó un retiro del cadete que coincide
 }
 
 interface PersonalOption { id: string; nombre: string }
 
-export function PedidoActions({ pedidoId, estado, isPersonal }: Props) {
+export function PedidoActions({ pedidoId, estado, isPersonal, hasMatch }: Props) {
   const router = useRouter();
   const [reasignando, setReasignando] = useState(false);
   const [personal, setPersonal] = useState<PersonalOption[]>([]);
@@ -96,22 +97,30 @@ export function PedidoActions({ pedidoId, estado, isPersonal }: Props) {
 
   if (isPersonal) {
     return (
-      <div className="flex gap-2 flex-wrap items-center">
-        <Link
-          href={`/retiros/nuevo?pedido=${pedidoId}`}
-          className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-medium bg-blue-50 text-blue-700 border border-blue-200 rounded-[6px] hover:bg-blue-100"
-        >
-          <i className="ti ti-circle-plus text-[13px]" /> Registrar retiro
-        </Link>
-        <button
-          onClick={resolverCadete}
-          disabled={loading}
-          title="Solo se marca si ya registraste un retiro de esta veterinaria"
-          className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-medium bg-g50 text-g700 border border-g200 rounded-[6px] hover:bg-g100 disabled:opacity-50"
-        >
-          {loading ? <span className="w-3 h-3 border-2 border-g200 border-t-g700 rounded-full animate-spin" /> : <i className="ti ti-check text-[13px]" />}
-          Marcar resuelto
-        </button>
+      <div className="space-y-2">
+        {hasMatch && (
+          <div className="flex items-center gap-1.5 text-[11px] font-medium text-g700 bg-g50 border border-g200 rounded-[8px] px-2.5 py-1.5 w-fit">
+            <i className="ti ti-circle-check text-[14px]" />
+            Detectamos tu retiro de esta veterinaria — podés marcarlo resuelto
+          </div>
+        )}
+        <div className="flex gap-2 flex-wrap items-center">
+          <Link
+            href={`/retiros/nuevo?pedido=${pedidoId}`}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-medium bg-blue-50 text-blue-700 border border-blue-200 rounded-[6px] hover:bg-blue-100"
+          >
+            <i className="ti ti-circle-plus text-[13px]" /> Registrar retiro
+          </Link>
+          <button
+            onClick={resolverCadete}
+            disabled={loading}
+            title={hasMatch ? "Se detectó un retiro tuyo de esta veterinaria" : "Solo se marca si ya registraste un retiro de esta veterinaria"}
+            className={`flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-medium border rounded-[6px] disabled:opacity-50 ${hasMatch ? "bg-g700 text-white border-g700 hover:bg-g800" : "bg-g50 text-g700 border-g200 hover:bg-g100"}`}
+          >
+            {loading ? <span className={`w-3 h-3 border-2 rounded-full animate-spin ${hasMatch ? "border-white/30 border-t-white" : "border-g200 border-t-g700"}`} /> : <i className="ti ti-check text-[13px]" />}
+            Marcar resuelto
+          </button>
+        </div>
       </div>
     );
   }
