@@ -19,7 +19,7 @@ export default async function CargaPage({
 
   let query = admin
     .from("control_preanalitica")
-    .select("*, retiro:retiro_id(id, cantidad_muestras, fecha_operativa, veterinaria_texto_original, codigo_original, personal:personal_id(nombre))")
+    .select("*, retiro:retiro_id(id, cantidad_muestras, fecha_operativa, veterinaria_texto_original, codigo_original, comprobante_url, personal:personal_id(nombre))")
     .eq("estado", "ok")
     .order("updated_at", { ascending: false })
     .limit(500);
