@@ -77,6 +77,23 @@ export function PedidoActions({ pedidoId, estado, isPersonal }: Props) {
     router.refresh();
   }
 
+  // El cadete pide al servidor marcar resuelto; solo procede si hay un retiro
+  // suyo que coincida en veterinaria y fecha (validación en el backend).
+  async function resolverCadete() {
+    setLoading(true);
+    const res = await fetch("/api/pedidos/resolver", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ pedidoId }),
+    });
+    const json = await res.json();
+    setLoading(false);
+    if (!res.ok) { toast("error", json.error ?? "No se pudo marcar como resuelto"); return; }
+    toast("success", "Pedido marcado como resuelto ✓");
+    window.dispatchEvent(new Event("badges:refresh"));
+    router.refresh();
+  }
+
   if (isPersonal) {
     return (
       <div className="flex gap-2 flex-wrap items-center">
@@ -86,6 +103,15 @@ export function PedidoActions({ pedidoId, estado, isPersonal }: Props) {
         >
           <i className="ti ti-circle-plus text-[13px]" /> Registrar retiro
         </Link>
+        <button
+          onClick={resolverCadete}
+          disabled={loading}
+          title="Solo se marca si ya registraste un retiro de esta veterinaria"
+          className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-medium bg-g50 text-g700 border border-g200 rounded-[6px] hover:bg-g100 disabled:opacity-50"
+        >
+          {loading ? <span className="w-3 h-3 border-2 border-g200 border-t-g700 rounded-full animate-spin" /> : <i className="ti ti-check text-[13px]" />}
+          Marcar resuelto
+        </button>
       </div>
     );
   }
