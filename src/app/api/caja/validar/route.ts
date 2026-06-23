@@ -31,13 +31,20 @@ export async function POST(req: Request) {
 
   const admin = createAdminClient();
 
-  // Recalcular snapshots desde la base (no confiar en el cliente).
+  // La "caja abierta" del cadete = todos sus retiros/gastos no validados
+  // (rendicion_id NULL), sin importar el día. Recalculamos desde la base.
   const [{ data: retiros }, { data: gastos }] = await Promise.all([
-    admin.from("retiros").select("importe_declarado, metodo_pago")
-      .eq("personal_id", personalId).eq("fecha_operativa", fecha).eq("anulado", false),
-    admin.from("gastos").select("monto")
-      .eq("personal_id", personalId).eq("fecha_operativa", fecha),
+    admin.from("retiros").select("id, importe_declarado, metodo_pago")
+      .eq("personal_id", personalId).eq("anulado", false).is("rendicion_id", null).lte("fecha_operativa", fecha),
+    admin.from("gastos").select("id, monto")
+      .eq("personal_id", personalId).is("rendicion_id", null).lte("fecha_operativa", fecha),
   ]);
+
+  const retiroIds = (retiros ?? []).map((r) => r.id);
+  const gastoIds = (gastos ?? []).map((g) => g.id);
+  if (retiroIds.length === 0 && gastoIds.length === 0) {
+    return NextResponse.json({ error: "El cadete no tiene una caja abierta para validar" }, { status: 400 });
+  }
 
   let totalEfectivo = 0, totalDigital = 0;
   for (const r of retiros ?? []) {
@@ -59,7 +66,8 @@ export async function POST(req: Request) {
   const diferencia = Math.round((importeValidado - efectivoEsperado) * 100) / 100;
   const observacion = (body.observacion ?? "").trim() || null;
 
-  const { error: upErr } = await admin.from("rendiciones_caja").upsert({
+  // 1) Crear la rendición (cierre de la caja). fecha_operativa = día del cierre.
+  const { data: rend, error: upErr } = await admin.from("rendiciones_caja").insert({
     personal_id: personalId,
     fecha_operativa: fecha,
     total_efectivo: totalEfectivo,
@@ -73,8 +81,18 @@ export async function POST(req: Request) {
     observacion,
     responsable_id: guard.user.id,
     updated_at: new Date().toISOString(),
-  }, { onConflict: "personal_id,fecha_operativa" });
-  if (upErr) return NextResponse.json({ error: upErr.message }, { status: 400 });
+  }).select("id").single();
+  if (upErr || !rend) return NextResponse.json({ error: upErr?.message ?? "No se pudo crear la rendición" }, { status: 400 });
+
+  // 2) Sellar los retiros/gastos de esta caja para que no vuelvan a sumar.
+  if (retiroIds.length) {
+    const { error } = await admin.from("retiros").update({ rendicion_id: rend.id }).in("id", retiroIds);
+    if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+  }
+  if (gastoIds.length) {
+    const { error } = await admin.from("gastos").update({ rendicion_id: rend.id }).in("id", gastoIds);
+    if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+  }
 
   const resumen = estado === "validado"
     ? `Validado · efectivo esperado ${fmtMoneySign(efectivoEsperado)}`
@@ -82,7 +100,7 @@ export async function POST(req: Request) {
 
   const { error: audErr } = await admin.from("auditoria").insert({
     entidad: "rendicion_caja",
-    entidad_id: `${personalId}:${fecha}`,
+    entidad_id: rend.id,
     accion: "Validación de caja",
     campo_modificado: "estado",
     valor_anterior: null,

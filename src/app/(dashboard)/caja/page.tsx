@@ -22,14 +22,15 @@ export default async function CajaPage({
   const fecha = fechaParam || today;
 
   const admin = createAdminClient();
-  const [{ data: retiros }, { data: gastos }, { data: rendiciones }, { data: revisadosRaw }] = await Promise.all([
+  // Pendientes = caja abierta de cada cadete: retiros/gastos NO validados
+  // (rendicion_id NULL), sin importar el día. El corte lo marca la validación.
+  const [{ data: retiros }, { data: gastos }, { data: revisadosRaw }] = await Promise.all([
     admin.from("retiros")
       .select("personal_id, importe_declarado, metodo_pago, personal:personal_id(nombre)")
-      .eq("fecha_operativa", fecha).eq("anulado", false),
+      .is("rendicion_id", null).eq("anulado", false).lte("fecha_operativa", fecha),
     admin.from("gastos")
       .select("personal_id, monto, descripcion, tipo, personal:personal_id(nombre)")
-      .eq("fecha_operativa", fecha),
-    admin.from("rendiciones_caja").select("*").eq("fecha_operativa", fecha),
+      .is("rendicion_id", null).lte("fecha_operativa", fecha),
     admin.from("rendiciones_caja")
       .select("*, personal:personal_id(nombre)")
       .in("estado", ["validado", "diferencia"])
@@ -66,12 +67,11 @@ export default async function CajaPage({
     a.gastos.push({ descripcion: g.descripcion, monto: Number(g.monto ?? 0), tipo: g.tipo });
     a.totalGastos += Number(g.monto ?? 0);
   }
-  const rendPorPersonal = new Map((rendiciones ?? []).map((x) => [x.personal_id, x]));
   const items = Array.from(map.values()).sort((x, y) => x.nombre.localeCompare(y.nombre, "es"));
   for (const a of items) {
     a.totalRecaudado = a.totalEfectivo + a.totalDigital;
     a.efectivoEsperado = a.totalEfectivo - a.totalGastos;
-    a.rendicion = rendPorPersonal.get(a.personalId) ?? null;
+    a.rendicion = null; // caja abierta: aún sin validar
   }
 
   const revisados: RevisadoRow[] = (revisadosRaw ?? []).map((x) => ({
