@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { Topbar } from "@/components/layout/Topbar";
 import { StatCard } from "@/components/ui/StatCard";
 import { PillStatus } from "@/components/ui/PillStatus";
@@ -37,7 +38,10 @@ export default async function PedidosPage() {
   // coincide (veterinaria + fecha), para mostrar el aviso verde anticipado.
   const pedidoConMatch = new Set<string>();
   if (isPersonal && persId) {
-    const { data: candidatos } = await supabase
+    // Cliente admin para que el aviso vea exactamente los mismos retiros que el
+    // API de resolución (sin que la RLS pueda mostrar algo distinto). El filtro
+    // por personal_id = persId mantiene el alcance al cadete autenticado.
+    const { data: candidatos } = await createAdminClient()
       .from("retiros")
       .select("fecha_operativa, veterinaria_id, veterinaria_texto_original, created_at")
       .eq("personal_id", persId)
