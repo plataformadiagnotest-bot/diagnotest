@@ -10,6 +10,7 @@ import { toast } from "@/components/ui/ToastNotification";
 import { todayISO, nowISO, formatDateTime } from "@/lib/utils/dates";
 import { initials, fmtMoneySign } from "@/lib/utils/format";
 import { notificarNuevoPedido, pedirPermisoNotificaciones } from "@/lib/utils/notificaciones";
+import { normVet } from "@/lib/pedidos/match";
 import type { MetodoPago } from "@/types";
 import type { PedidoMobile, RetiroResumen } from "@/app/(dashboard)/inicio/page";
 
@@ -120,6 +121,11 @@ export function MobileHome({ nombre, zonaNombre, personalId, profileId, veterina
   const [savingRetiro, setSavingRetiro] = useState(false);
   const [fotoRetiro, setFotoRetiro] = useState<File | null>(null);
   const fotoRetiroInput = useRef<HTMLInputElement>(null);
+  // Avisos que requieren confirmación antes de guardar (modal propio: en la PWA
+  // instalada el window.confirm nativo suele quedar suprimido por el navegador).
+  // `dup` indica si entre los avisos hay un duplicado confirmado, para que el
+  // retiro guardado quede como visita válida y no oculto como sospechoso.
+  const [confirmRetiro, setConfirmRetiro] = useState<{ msgs: string[]; dup: boolean } | null>(null);
 
   // ── Gasto form ──────────────────────────────────────────────
   const [gTipo, setGTipo] = useState<"gasto" | "retiro_dinero">("gasto");
@@ -172,6 +178,31 @@ export function MobileHome({ nombre, zonaNombre, personalId, profileId, veterina
     if (fotoRetiroInput.current) fotoRetiroInput.current.value = "";
   }
 
+  // ¿Ya hay un retiro de esta veterinaria cargado hoy por este cadete? Matchea
+  // por id, código o nombre normalizado. Online consulta la base (ve también los
+  // marcados como sospechosos); offline usa lo que ya está en el resumen del día.
+  async function hayDuplicadoHoy(): Promise<boolean> {
+    const nombre = normVet(vetSel?.nombre ?? vetTexto);
+    const cod = normVet(codigo);
+    if (!vetId && !nombre && !cod) return false;
+    if (isOffline) {
+      return resumenRetiros.some((r) =>
+        (!!cod && normVet(r.codigo) === cod) || (!!nombre && normVet(r.veterinaria) === nombre)
+      );
+    }
+    const { data } = await supabase
+      .from("retiros")
+      .select("id, veterinaria_id, veterinaria_texto_original, codigo_original")
+      .eq("personal_id", personalId)
+      .eq("fecha_operativa", todayISO())
+      .eq("anulado", false);
+    return (data ?? []).some((r) =>
+      (!!vetId && r.veterinaria_id === vetId) ||
+      (!!cod && normVet(r.codigo_original) === cod) ||
+      (!!nombre && normVet(r.veterinaria_texto_original) === nombre)
+    );
+  }
+
   async function guardarRetiro() {
     if (!personalId) { toast("error", "No se encontró tu perfil de personal"); return; }
     if (!vetTexto.trim()) { toast("error", "Indicá la veterinaria"); return; }
@@ -179,6 +210,31 @@ export function MobileHome({ nombre, zonaNombre, personalId, profileId, veterina
     if (!importe.trim() || parseFloat(importe) < 0) { toast("error", "Ingresá el importe"); return; }
     const hayPago = parseFloat(importe) > 0;
     if (hayPago && !metodoPago) { toast("error", "Seleccioná el tipo de pago"); return; }
+
+    // Avisos que requieren confirmación: 0 muestras (visita sin levantar nada) y
+    // duplicado del día. Si hay alguno, abrimos el modal y esperamos el OK.
+    const cantidad = parseInt(muestras) || 0;
+    const msgs: string[] = [];
+    if (cantidad === 0) {
+      msgs.push("Vas a guardar un retiro con 0 muestras (pasaste por la veterinaria sin levantar ninguna).");
+    }
+    const dup = await hayDuplicadoHoy();
+    if (dup) {
+      msgs.push(`Ya cargaste un retiro de "${vetSel?.nombre ?? vetTexto}" hoy. Si confirmás, se guarda igual como una segunda visita válida.`);
+    }
+    if (msgs.length > 0) {
+      setConfirmRetiro({ msgs, dup });
+      return;
+    }
+    await persistRetiro(false);
+  }
+
+  // Guarda el retiro de verdad. `confirmadoDup` = el cadete aceptó un duplicado:
+  // en ese caso, si el trigger de la base lo marcó como sospechoso, lo volvemos a
+  // 'registrado' para que cuente como visita.
+  async function persistRetiro(confirmadoDup: boolean) {
+    if (!personalId) return;
+    const hayPago = parseFloat(importe) > 0;
     setSavingRetiro(true);
 
     let comprobanteUrl: string | null = null;
@@ -226,6 +282,12 @@ export function MobileHome({ nombre, zonaNombre, personalId, profileId, veterina
     // Insert directo al servidor: por definición queda sincronizado.
     const { error } = await supabase.from("retiros").insert({ ...retiro, sincronizado: true });
     if (error) { toast("error", "Error al guardar: " + error.message); setSavingRetiro(false); return; }
+
+    // El cadete confirmó el duplicado: si el trigger lo marcó sospechoso, lo
+    // dejamos como visita registrada para que cuente en el resumen.
+    if (confirmadoDup) {
+      await supabase.from("retiros").update({ estado: "registrado" }).eq("id", id).eq("estado", "duplicado_sospechoso");
+    }
 
     if (pedidoId) {
       await supabase.from("pedidos_retiro").update({ estado: "resuelto", resuelto_en: nowISO(), retiro_id: id }).eq("id", pedidoId);
@@ -367,7 +429,7 @@ export function MobileHome({ nombre, zonaNombre, personalId, profileId, veterina
                 className={`flex flex-col items-center justify-center gap-0.5 py-3.5 rounded-[12px] border-2 transition-all ${verVets ? "border-g500 bg-g50" : "border-gy200 bg-white"}`}>
                 <span className="text-[24px] font-bold text-g700 leading-none">{totalVisitas}</span>
                 <span className="text-[10px] font-semibold text-gy500 flex items-center gap-0.5">
-                  Veterinarias <i className={`ti ti-chevron-${verVets ? "up" : "down"} text-[11px]`} />
+                  Visitas <i className={`ti ti-chevron-${verVets ? "up" : "down"} text-[11px]`} />
                 </span>
               </button>
               {/* Ingreso total */}
@@ -617,6 +679,37 @@ export function MobileHome({ nombre, zonaNombre, personalId, profileId, veterina
           </div>
         )}
       </div>
+
+      {confirmRetiro && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 p-3" onClick={() => setConfirmRetiro(null)}>
+          <div className="bg-white rounded-[16px] shadow-xl max-w-[420px] w-full overflow-hidden" onClick={(e) => e.stopPropagation()}>
+            <div className="px-5 py-4 border-b border-gy100 flex items-center gap-2.5">
+              <i className="ti ti-alert-triangle text-[22px] text-amber-500" />
+              <span className="text-[15px] font-semibold text-gy900">Confirmá antes de guardar</span>
+            </div>
+            <div className="px-5 py-4 space-y-3">
+              {confirmRetiro.msgs.map((m, i) => (
+                <div key={i} className="flex items-start gap-2 text-[13px] text-gy700 leading-snug">
+                  <i className="ti ti-point-filled text-[15px] text-amber-500 mt-0.5 shrink-0" />
+                  <span>{m}</span>
+                </div>
+              ))}
+              <p className="text-[12px] text-gy500 pt-0.5">¿Querés guardar de todas formas?</p>
+            </div>
+            <div className="px-5 py-3.5 bg-gy50 border-t border-gy100 flex gap-2.5">
+              <button type="button" onClick={() => setConfirmRetiro(null)}
+                className="flex-1 py-3 text-[14px] font-semibold bg-white text-gy600 border-2 border-gy200 rounded-[12px]">
+                Cancelar
+              </button>
+              <button type="button" disabled={savingRetiro}
+                onClick={() => { const dup = confirmRetiro.dup; setConfirmRetiro(null); persistRetiro(dup); }}
+                className="flex-1 py-3 text-[14px] font-bold bg-g700 text-white rounded-[12px] disabled:opacity-60">
+                Sí, guardar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
