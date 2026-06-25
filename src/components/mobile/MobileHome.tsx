@@ -260,6 +260,7 @@ export function MobileHome({ nombre, zonaNombre, personalId, profileId, veterina
       tipo: "veterinaria" as const,
       urgente,
       estado: "registrado" as const,
+      segunda_visita: confirmadoDup,
       latitud: null,
       longitud: null,
       sincronizado: false,
@@ -283,8 +284,9 @@ export function MobileHome({ nombre, zonaNombre, personalId, profileId, veterina
     const { error } = await supabase.from("retiros").insert({ ...retiro, sincronizado: true });
     if (error) { toast("error", "Error al guardar: " + error.message); setSavingRetiro(false); return; }
 
-    // El cadete confirmó el duplicado: si el trigger lo marcó sospechoso, lo
-    // dejamos como visita registrada para que cuente en el resumen.
+    // El cadete confirmó que es una segunda visita (no un duplicado). El trigger
+    // ya la ignora por la bandera segunda_visita, pero por las dudas (deploy de
+    // la migración pendiente) revertimos cualquier marca de sospechoso.
     if (confirmadoDup) {
       await supabase.from("retiros").update({ estado: "registrado" }).eq("id", id).eq("estado", "duplicado_sospechoso");
     }

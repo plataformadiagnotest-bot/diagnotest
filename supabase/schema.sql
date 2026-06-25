@@ -108,6 +108,7 @@ create table retiros (
   pedido_id                 uuid,
   created_by                uuid not null references profiles(id),
   anulado                   boolean not null default false,
+  segunda_visita            boolean not null default false,
   created_at                timestamptz not null default now(),
   updated_at                timestamptz not null default now()
 );
@@ -227,6 +228,11 @@ returns trigger language plpgsql security definer as $$
 declare
   dup_count integer;
 begin
+  -- Una segunda visita confirmada por el cadete nunca es duplicado.
+  if new.segunda_visita then
+    return new;
+  end if;
+
   select count(*) into dup_count
   from retiros
   where personal_id = new.personal_id
@@ -237,6 +243,7 @@ begin
     and abs(importe_declarado - new.importe_declarado) < 1
     and timestamp_carga > (now() - interval '30 minutes')
     and anulado = false
+    and segunda_visita = false
     and id != new.id;
 
   if dup_count > 0 then

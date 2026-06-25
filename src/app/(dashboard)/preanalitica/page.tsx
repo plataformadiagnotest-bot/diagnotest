@@ -18,7 +18,7 @@ export default async function PreanaliticaPage() {
       *,
       retiro:retiro_id(
         id, cantidad_muestras, comentarios, urgente, fecha_operativa, timestamp_carga,
-        veterinaria_texto_original, codigo_original, comprobante_url,
+        veterinaria_texto_original, codigo_original, comprobante_url, segunda_visita,
         personal:personal_id(nombre)
       )
     `)

@@ -274,6 +274,12 @@ export function ControlCard({ control, tipo }: Props) {
             <i className="ti ti-photo text-[13px]" /> Ver ticket
           </a>
         )}
+        {retiro?.segunda_visita && (
+          <span className="inline-flex items-center gap-1 text-[10px] font-bold text-orange-700 bg-orange-100 border border-orange-300 rounded-full px-2 py-0.5"
+            title="El cadete registró otra visita de esta veterinaria el mismo día y la confirmó como visita real (no es un duplicado).">
+            <i className="ti ti-repeat" /> 2ª visita
+          </span>
+        )}
         {tipo === "pre" && yaObservado && (
           <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-amber-text bg-amber-bg border border-amber/40 rounded-full px-2 py-0.5">
             <i className="ti ti-flag-2" /> Observado · pendiente
