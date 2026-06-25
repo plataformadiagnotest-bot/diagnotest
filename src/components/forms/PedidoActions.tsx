@@ -98,10 +98,15 @@ export function PedidoActions({ pedidoId, estado, isPersonal, hasMatch }: Props)
   if (isPersonal) {
     return (
       <div className="space-y-2">
-        {hasMatch && (
+        {hasMatch ? (
           <div className="flex items-center gap-1.5 text-[11px] font-medium text-g700 bg-g50 border border-g200 rounded-[8px] px-2.5 py-1.5 w-fit">
             <i className="ti ti-circle-check text-[14px]" />
             Detectamos tu retiro de esta veterinaria — podés marcarlo resuelto
+          </div>
+        ) : (
+          <div className="flex items-center gap-1.5 text-[11px] font-medium text-gy500 bg-gy50 border border-gy200 rounded-[8px] px-2.5 py-1.5 w-fit">
+            <i className="ti ti-info-circle text-[14px]" />
+            Registrá primero el retiro de esta veterinaria para poder marcarlo resuelto
           </div>
         )}
         <div className="flex gap-2 flex-wrap items-center">
@@ -113,11 +118,11 @@ export function PedidoActions({ pedidoId, estado, isPersonal, hasMatch }: Props)
           </Link>
           <button
             onClick={resolverCadete}
-            disabled={loading}
-            title={hasMatch ? "Se detectó un retiro tuyo de esta veterinaria" : "Solo se marca si ya registraste un retiro de esta veterinaria"}
-            className={`flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-medium border rounded-[6px] disabled:opacity-50 ${hasMatch ? "bg-g700 text-white border-g700 hover:bg-g800" : "bg-g50 text-g700 border-g200 hover:bg-g100"}`}
+            disabled={loading || !hasMatch}
+            title={hasMatch ? "Se detectó un retiro tuyo de esta veterinaria" : "Solo se habilita cuando registraste un retiro de esta veterinaria"}
+            className={`flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-medium border rounded-[6px] disabled:opacity-50 disabled:cursor-not-allowed ${hasMatch ? "bg-g700 text-white border-g700 hover:bg-g800" : "bg-gy50 text-gy400 border-gy200"}`}
           >
-            {loading ? <span className={`w-3 h-3 border-2 rounded-full animate-spin ${hasMatch ? "border-white/30 border-t-white" : "border-g200 border-t-g700"}`} /> : <i className="ti ti-check text-[13px]" />}
+            {loading ? <span className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <i className="ti ti-check text-[13px]" />}
             Marcar resuelto
           </button>
         </div>
