@@ -67,11 +67,46 @@ export function RetiroForm({ personalId, pedidoId, prefill, onSaved }: Props) {
     setForm((f) => ({ ...f, [field]: value }));
   }
 
+  // Busca un retiro ya cargado hoy para la misma veterinaria (por id o, si se
+  // tipeó a mano, por código), del mismo cadete y sin anular. Sirve para avisar
+  // antes de duplicar la carga. Por RLS el cadete solo ve sus propios retiros.
+  async function buscarDuplicadoHoy() {
+    if (!form.veterinaria_id && !form.codigo_original.trim()) return null;
+    let q = supabase
+      .from("retiros")
+      .select("id, veterinaria_texto_original, codigo_original")
+      .eq("fecha_operativa", form.fecha_operativa)
+      .eq("anulado", false);
+    if (form.personal_id) q = q.eq("personal_id", form.personal_id);
+    if (form.veterinaria_id) q = q.eq("veterinaria_id", form.veterinaria_id);
+    else q = q.eq("codigo_original", form.codigo_original.trim());
+    const { data } = await q.limit(1);
+    return data?.[0] ?? null;
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!userId) { toast("error", "No se pudo identificar tu sesión, recargá la página"); return; }
     const hayPago = parseFloat(form.importe_declarado) > 0;
     if (hayPago && !form.metodo_pago) { toast("error", "Seleccioná el tipo de pago"); return; }
+
+    // Confirmación: retiro sin muestras (el cadete pasó por la veterinaria pero
+    // no levantó nada; igual queremos dejar registro de la visita).
+    const cantidad = parseInt(form.cantidad_muestras) || 0;
+    if (cantidad === 0) {
+      if (!confirm("Estás a punto de guardar un retiro con 0 muestras (pasaste por la veterinaria sin levantar ninguna). ¿Confirmás?")) return;
+    }
+
+    // Confirmación: ya hay un retiro de esta veterinaria cargado hoy. Si el
+    // cadete confirma, se guarda igual (un segundo registro válido); si no, corta.
+    if (!isOffline) {
+      const dup = await buscarDuplicadoHoy();
+      if (dup) {
+        const ref = dup.veterinaria_texto_original || dup.codigo_original || "esta veterinaria";
+        if (!confirm(`Ya cargaste un retiro de "${ref}" hoy. ¿Querés guardar igual un segundo registro para esta veterinaria?`)) return;
+      }
+    }
+
     setLoading(true);
 
     const id = crypto.randomUUID();
@@ -83,7 +118,7 @@ export function RetiroForm({ personalId, pedidoId, prefill, onSaved }: Props) {
       veterinaria_id: form.veterinaria_id || null,
       veterinaria_texto_original: form.veterinaria_texto_original,
       codigo_original: form.codigo_original || null,
-      cantidad_muestras: parseInt(form.cantidad_muestras) || 0,
+      cantidad_muestras: cantidad,
       importe_declarado: parseFloat(form.importe_declarado) || 0,
       metodo_pago: hayPago ? (form.metodo_pago as MetodoPago) : null,
       comprobante_url: null,

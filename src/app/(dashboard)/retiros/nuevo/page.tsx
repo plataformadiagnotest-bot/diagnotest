@@ -69,9 +69,9 @@ export default async function NuevoRetiroPage() {
               </div>
               <div className="p-3 divide-y divide-gy100">
                 {[
-                  "Cantidad numérica requerida",
+                  "Permite retiro con 0 muestras (confirma)",
                   "Importe numérico requerido",
-                  "Detección de duplicados (30 min)",
+                  "Detección de duplicados (mismo día)",
                   "Veterinaria: normalización automática",
                   "Auditoría de cambios",
                 ].map((v) => (
