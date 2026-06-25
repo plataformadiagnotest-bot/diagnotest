@@ -7,6 +7,7 @@ import { useOffline } from "@/lib/hooks/useOffline";
 import { saveRetiroOffline, addToSyncQueue } from "@/lib/offline/indexeddb";
 import { toast } from "@/components/ui/ToastNotification";
 import { todayISO, nowISO } from "@/lib/utils/dates";
+import { normVet } from "@/lib/pedidos/match";
 import type { TipoRetiro, MetodoPago } from "@/types";
 
 interface VetOption { id: string; codigo: string; nombre: string; zona_id: string | null }
@@ -34,6 +35,9 @@ export function RetiroForm({ personalId, pedidoId, prefill, onSaved }: Props) {
   const [personal, setPersonal] = useState<PersonalOption[]>([]);
   const [userId, setUserId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  // Avisos que requieren confirmación antes de guardar (modal propio: en una PWA
+  // instalada el window.confirm nativo suele quedar suprimido por el navegador).
+  const [confirmacion, setConfirmacion] = useState<string[] | null>(null);
 
   const [form, setForm] = useState({
     personal_id: personalId ?? "",
@@ -67,21 +71,42 @@ export function RetiroForm({ personalId, pedidoId, prefill, onSaved }: Props) {
     setForm((f) => ({ ...f, [field]: value }));
   }
 
-  // Busca un retiro ya cargado hoy para la misma veterinaria (por id o, si se
-  // tipeó a mano, por código), del mismo cadete y sin anular. Sirve para avisar
-  // antes de duplicar la carga. Por RLS el cadete solo ve sus propios retiros.
+  // Busca un retiro ya cargado hoy para la misma veterinaria, del mismo cadete y
+  // sin anular. Matchea por id, por código o por nombre normalizado (por si el
+  // cadete escribió el nombre a mano sin elegirlo del listado). Por RLS el cadete
+  // solo ve sus propios retiros, así que el alcance ya queda acotado.
   async function buscarDuplicadoHoy() {
-    if (!form.veterinaria_id && !form.codigo_original.trim()) return null;
+    const nombre = normVet(form.veterinaria_texto_original);
+    const codigo = normVet(form.codigo_original);
+    if (!form.veterinaria_id && !nombre && !codigo) return null;
     let q = supabase
       .from("retiros")
-      .select("id, veterinaria_texto_original, codigo_original")
+      .select("id, veterinaria_id, veterinaria_texto_original, codigo_original")
       .eq("fecha_operativa", form.fecha_operativa)
       .eq("anulado", false);
     if (form.personal_id) q = q.eq("personal_id", form.personal_id);
-    if (form.veterinaria_id) q = q.eq("veterinaria_id", form.veterinaria_id);
-    else q = q.eq("codigo_original", form.codigo_original.trim());
-    const { data } = await q.limit(1);
-    return data?.[0] ?? null;
+    const { data } = await q;
+    return (data ?? []).find((r) =>
+      (!!form.veterinaria_id && r.veterinaria_id === form.veterinaria_id) ||
+      (!!codigo && normVet(r.codigo_original) === codigo) ||
+      (!!nombre && normVet(r.veterinaria_texto_original) === nombre)
+    ) ?? null;
+  }
+
+  // Reúne los avisos que requieren confirmación del cadete antes de guardar.
+  async function avisosPreGuardado(cantidad: number): Promise<string[]> {
+    const msgs: string[] = [];
+    if (cantidad === 0) {
+      msgs.push("Vas a guardar un retiro con 0 muestras (pasaste por la veterinaria sin levantar ninguna).");
+    }
+    if (!isOffline) {
+      const dup = await buscarDuplicadoHoy();
+      if (dup) {
+        const ref = dup.veterinaria_texto_original || dup.codigo_original || "esta veterinaria";
+        msgs.push(`Ya cargaste un retiro de "${ref}" hoy. Si confirmás, se guarda igual un segundo registro.`);
+      }
+    }
+    return msgs;
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -90,23 +115,21 @@ export function RetiroForm({ personalId, pedidoId, prefill, onSaved }: Props) {
     const hayPago = parseFloat(form.importe_declarado) > 0;
     if (hayPago && !form.metodo_pago) { toast("error", "Seleccioná el tipo de pago"); return; }
 
-    // Confirmación: retiro sin muestras (el cadete pasó por la veterinaria pero
-    // no levantó nada; igual queremos dejar registro de la visita).
     const cantidad = parseInt(form.cantidad_muestras) || 0;
-    if (cantidad === 0) {
-      if (!confirm("Estás a punto de guardar un retiro con 0 muestras (pasaste por la veterinaria sin levantar ninguna). ¿Confirmás?")) return;
+    const msgs = await avisosPreGuardado(cantidad);
+    if (msgs.length > 0) {
+      setConfirmacion(msgs); // abre el modal de confirmación propio
+      return;
     }
+    await persistRetiro();
+  }
 
-    // Confirmación: ya hay un retiro de esta veterinaria cargado hoy. Si el
-    // cadete confirma, se guarda igual (un segundo registro válido); si no, corta.
-    if (!isOffline) {
-      const dup = await buscarDuplicadoHoy();
-      if (dup) {
-        const ref = dup.veterinaria_texto_original || dup.codigo_original || "esta veterinaria";
-        if (!confirm(`Ya cargaste un retiro de "${ref}" hoy. ¿Querés guardar igual un segundo registro para esta veterinaria?`)) return;
-      }
-    }
-
+  // Guarda el retiro de verdad (se llama directo si no hay avisos, o desde el
+  // modal cuando el cadete confirma).
+  async function persistRetiro() {
+    if (!userId) return;
+    const hayPago = parseFloat(form.importe_declarado) > 0;
+    const cantidad = parseInt(form.cantidad_muestras) || 0;
     setLoading(true);
 
     const id = crypto.randomUUID();
@@ -168,6 +191,7 @@ export function RetiroForm({ personalId, pedidoId, prefill, onSaved }: Props) {
   }
 
   return (
+    <>
     <form onSubmit={handleSubmit} className="space-y-5">
       {/* Identificación */}
       <section>
@@ -312,5 +336,36 @@ export function RetiroForm({ personalId, pedidoId, prefill, onSaved }: Props) {
         ID único generado automáticamente · Timestamp registrado · Vinculado a trazabilidad
       </div>
     </form>
+
+    {confirmacion && (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setConfirmacion(null)}>
+        <div className="bg-white rounded-[14px] shadow-xl max-w-[420px] w-full overflow-hidden" onClick={(e) => e.stopPropagation()}>
+          <div className="px-5 py-4 border-b border-gy100 flex items-center gap-2.5">
+            <i className="ti ti-alert-triangle text-[20px] text-amber-500" />
+            <span className="text-[15px] font-semibold text-gy900">Confirmá antes de guardar</span>
+          </div>
+          <div className="px-5 py-4 space-y-2.5">
+            {confirmacion.map((m, i) => (
+              <div key={i} className="flex items-start gap-2 text-[13px] text-gy700">
+                <i className="ti ti-point-filled text-[14px] text-amber-500 mt-0.5 shrink-0" />
+                <span>{m}</span>
+              </div>
+            ))}
+            <p className="text-[12px] text-gy500 pt-1">¿Querés guardar de todas formas?</p>
+          </div>
+          <div className="px-5 py-3.5 bg-gy50 border-t border-gy100 flex gap-2 justify-end">
+            <button type="button" onClick={() => setConfirmacion(null)}
+              className="px-3.5 py-2 text-[12px] font-medium bg-white text-gy600 border border-gy200 rounded-[8px] hover:bg-gy50">
+              Cancelar
+            </button>
+            <button type="button" onClick={() => { setConfirmacion(null); persistRetiro(); }}
+              className="px-3.5 py-2 text-[12px] font-semibold bg-g700 text-white rounded-[8px] hover:bg-g800">
+              Sí, guardar
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+    </>
   );
 }
