@@ -6,7 +6,7 @@ import { ControlCard } from "@/components/ui/ControlCard";
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyRecord = Record<string, any>;
 
-type Filtro = "fecha" | "personal" | "todos" | "urgentes" | "veterinaria" | "observados";
+type Filtro = "fecha" | "personal" | "todos" | "urgentes" | "veterinaria";
 
 const FILTROS: { id: Filtro; label: string }[] = [
   { id: "fecha", label: "Por fecha" },
@@ -14,10 +14,18 @@ const FILTROS: { id: Filtro; label: string }[] = [
   { id: "todos", label: "Todos" },
   { id: "urgentes", label: "Urgentes primero" },
   { id: "veterinaria", label: "Por veterinaria" },
-  { id: "observados", label: "Observados" },
 ];
 
+type Etapa = "c1" | "c2";
+
 const esUrgente = (c: AnyRecord) => c.urgente || c.retiro?.urgente;
+
+// Etapa de cada control, derivada de control_1/control_2 (sin estados nuevos).
+//   c1 → todavía no tiene el Control 1 en OK
+//   c2 → Control 1 en OK, falta el Control 2
+function etapaDe(c: AnyRecord): Etapa {
+  return c.control_1 === "ok" ? "c2" : "c1";
+}
 
 // Encabezado legible para los grupos por fecha: "Hoy", "Ayer" o la fecha formateada.
 function etiquetaFecha(iso: string): string {
@@ -35,19 +43,23 @@ function etiquetaFecha(iso: string): string {
 }
 
 export function PreanaliticaBandeja({ controles }: { controles: AnyRecord[] }) {
+  const [etapa, setEtapa] = useState<Etapa>("c1");
   const [filtro, setFiltro] = useState<Filtro>("fecha");
   const [qCadete, setQCadete] = useState("");
   const [qVete, setQVete] = useState("");
 
-  const observadosCount = useMemo(() => controles.filter((c) => c.estado === "observado").length, [controles]);
+  // En la bandeja solo se trabajan los pendientes; los observados tienen su
+  // propia pantalla. Se reparten en dos solapas según la etapa del control.
+  const pendientes = useMemo(() => controles.filter((c) => c.estado === "pendiente"), [controles]);
+  const c1Count = useMemo(() => pendientes.filter((c) => etapaDe(c) === "c1").length, [pendientes]);
+  const c2Count = useMemo(() => pendientes.filter((c) => etapaDe(c) === "c2").length, [pendientes]);
 
   // Dos buscadores independientes: uno por cadete y otro por veterinaria/código.
   // Se pueden combinar (ej.: cadete "Emily" + veterinaria que trajo).
   const filtrados = useMemo(() => {
     const qc = qCadete.trim().toLowerCase();
     const qv = qVete.trim().toLowerCase();
-    let base = controles;
-    if (filtro === "observados") base = base.filter((c) => c.estado === "observado");
+    const base = pendientes.filter((c) => etapaDe(c) === etapa);
     if (!qc && !qv) return base;
     return base.filter((c) => {
       const r = c.retiro ?? {};
@@ -56,7 +68,7 @@ export function PreanaliticaBandeja({ controles }: { controles: AnyRecord[] }) {
         .some((v) => String(v ?? "").toLowerCase().includes(qv));
       return okCadete && okVete;
     });
-  }, [controles, qCadete, qVete, filtro]);
+  }, [pendientes, qCadete, qVete, etapa]);
 
   // Lista plana ordenada (para "Todos" y "Urgentes primero").
   const planos = useMemo(() => {
@@ -90,6 +102,21 @@ export function PreanaliticaBandeja({ controles }: { controles: AnyRecord[] }) {
 
   return (
     <div className="space-y-4">
+      {/* Solapas por etapa: primero Control 1, después Control 2 */}
+      <div className="flex gap-2">
+        {([
+          { id: "c1" as Etapa, label: "Control 1", icon: "ti-clipboard-list", count: c1Count },
+          { id: "c2" as Etapa, label: "Control 2", icon: "ti-clipboard-check", count: c2Count },
+        ]).map((t) => (
+          <button key={t.id} onClick={() => setEtapa(t.id)}
+            className={`flex items-center gap-2 px-4 py-2 rounded-[10px] border text-[13px] font-semibold transition-all ${etapa === t.id ? "bg-g800 text-white border-g800 shadow-sm" : "bg-white text-gy600 border-gy200 hover:border-g400 hover:text-g700"}`}>
+            <i className={`ti ${t.icon} text-[16px]`} />
+            {t.label}
+            <span className={`text-[11px] font-bold rounded-full px-2 py-0.5 ${etapa === t.id ? "bg-white/20 text-white" : "bg-gy100 text-gy600"}`}>{t.count}</span>
+          </button>
+        ))}
+      </div>
+
       <div className="flex items-center gap-2 flex-wrap">
         <div className="relative flex-1 min-w-[170px] max-w-[260px]">
           <i className="ti ti-user absolute left-3 top-1/2 -translate-y-1/2 text-gy400 text-[14px]" />
@@ -116,9 +143,6 @@ export function PreanaliticaBandeja({ controles }: { controles: AnyRecord[] }) {
             <button key={f.id} onClick={() => setFiltro(f.id)}
               className={`px-3 py-1.5 rounded-full border text-[11px] transition-all ${filtro === f.id ? "bg-g800 text-white border-g800" : "bg-white text-gy600 border-gy200 hover:border-g400 hover:text-g700"}`}>
               {f.label}
-              {f.id === "observados" && observadosCount > 0 && (
-                <span className={`ml-1.5 text-[9px] font-bold rounded-full px-1.5 py-0.5 ${filtro === f.id ? "bg-white/20 text-white" : "bg-amber-bg text-amber-text"}`}>{observadosCount}</span>
-              )}
             </button>
           ))}
         </div>
@@ -142,14 +166,14 @@ export function PreanaliticaBandeja({ controles }: { controles: AnyRecord[] }) {
                 <div className="flex-1 h-px bg-gy100" />
               </div>
               {items.map((c) => (
-                <ControlCard key={c.id} control={c} tipo="pre" />
+                <ControlCard key={c.id} control={c} tipo="pre" etapa={etapa} />
               ))}
             </div>
           ))
         : (
             <div className="space-y-3.5">
               {planos.map((c: AnyRecord) => (
-                <ControlCard key={c.id} control={c} tipo="pre" />
+                <ControlCard key={c.id} control={c} tipo="pre" etapa={etapa} />
               ))}
             </div>
           )}

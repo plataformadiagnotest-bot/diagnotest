@@ -3,6 +3,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { Topbar } from "@/components/layout/Topbar";
 import { EtiquetasChips } from "@/components/preanalitica/EtiquetasChips";
 import { ControlValor } from "@/components/preanalitica/ControlValor";
+import { AdjuntosPreanalitica } from "@/components/preanalitica/AdjuntosPreanalitica";
 import { ControladoAcciones } from "@/components/preanalitica/ControladoAcciones";
 import { formatDateTime } from "@/lib/utils/dates";
 import { esCanceladoOAnulado, etiquetaRojo } from "@/lib/utils/preanalitica";
@@ -91,7 +92,7 @@ export default async function PreanaliticaControladosPage({
             <table className="w-full border-collapse text-[12px]">
               <thead>
                 <tr className="bg-gy50">
-                  {["Código", "Personal", "Veterinaria", "Muestras", "Control 1", "Control 2", "Etiquetas", "Comentario", "Responsable", "Hora", "Acciones"].map((h) => (
+                  {["Código", "Personal", "Veterinaria", "Muestras", "Control 1", "Control 2", "Etiquetas", "Comentario", "Adjuntos", "Responsable", "Hora", "Acciones"].map((h) => (
                     <th key={h} className="px-3.5 py-2.5 text-left text-[10px] font-bold uppercase tracking-wide text-gy400 border-b border-gy200">{h}</th>
                   ))}
                 </tr>
@@ -119,7 +120,12 @@ export default async function PreanaliticaControladosPage({
                           <div className="text-[10px] text-red-600 mt-0.5">Motivo: {c.cancelado_motivo}</div>
                         )}
                       </td>
-                      <td className="px-3.5 py-2.5 text-gy600">{c.responsable_id ? (nombrePorId.get(c.responsable_id) ?? "—") : "—"}</td>
+                      <td className="px-3.5 py-2.5 text-center"><AdjuntosPreanalitica fotos={(c.fotos_urls ?? []) as string[]} /></td>
+                      <td className="px-3.5 py-2.5 text-gy600">
+                        {c.responsable_1 || c.responsable_2
+                          ? <span className="text-[11px]">{[c.responsable_1 && `C1: ${c.responsable_1}`, c.responsable_2 && `C2: ${c.responsable_2}`].filter(Boolean).join(" · ")}</span>
+                          : (c.responsable_id ? (nombrePorId.get(c.responsable_id) ?? "—") : "—")}
+                      </td>
                       <td className="px-3.5 py-2.5 text-gy600 whitespace-nowrap">{formatDateTime(c.updated_at)}</td>
                       <td className="px-3.5 py-2.5">
                         <ControladoAcciones controlId={c.id} cancelado={!!c.cancelado} comentario={c.comentario ?? null} />
@@ -128,7 +134,7 @@ export default async function PreanaliticaControladosPage({
                   );
                 })}
                 {!controles.length && (
-                  <tr><td colSpan={11} className="py-10 text-center text-gy400">Sin registros controlados en el período</td></tr>
+                  <tr><td colSpan={12} className="py-10 text-center text-gy400">Sin registros controlados en el período</td></tr>
                 )}
               </tbody>
             </table>

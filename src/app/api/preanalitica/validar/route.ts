@@ -27,12 +27,19 @@ export async function POST(req: Request) {
   const guard = await requireRol();
   if ("error" in guard) return NextResponse.json({ error: guard.error }, { status: guard.status });
 
-  let body: { controlId?: string; estado?: string; control1?: string; control2?: string; etiquetas?: string[]; detalle?: string };
+  let body: {
+    controlId?: string; estado?: string; control1?: string; control2?: string;
+    etiquetas?: string[]; detalle?: string; detalle2?: string;
+    responsable1?: string | null; responsable2?: string | null;
+  };
   try { body = await req.json(); } catch { return NextResponse.json({ error: "Body inválido" }, { status: 400 }); }
 
   const controlId = body.controlId;
   const estado = body.estado ?? "";
   const detalle = (body.detalle ?? "").trim() || null;
+  const detalle2 = (body.detalle2 ?? "").trim() || null;
+  const responsable1 = (body.responsable1 ?? "")?.toString().trim() || null;
+  const responsable2 = (body.responsable2 ?? "")?.toString().trim() || null;
   const control1 = body.control1 ?? null;
   const control2 = body.control2 ?? null;
   const etiquetas = Array.isArray(body.etiquetas) ? body.etiquetas : [];
@@ -56,6 +63,9 @@ export async function POST(req: Request) {
       control_2: control2,
       etiquetas,
       detalle,
+      detalle_2: detalle2,
+      responsable_1: responsable1,
+      responsable_2: responsable2,
       responsable_id: guard.user.id,
     })
     .eq("id", controlId);

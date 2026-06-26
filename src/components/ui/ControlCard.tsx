@@ -7,13 +7,22 @@ import { toast } from "@/components/ui/ToastNotification";
 import { PillStatus } from "@/components/ui/PillStatus";
 import { fmtMoneySign } from "@/lib/utils/format";
 import { formatDateTime } from "@/lib/utils/dates";
+import { ResponsableSelector } from "@/components/preanalitica/ResponsableSelector";
+import { AdjuntosPreanalitica } from "@/components/preanalitica/AdjuntosPreanalitica";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyRecord = Record<string, any>;
 
+// etapa: en qué solapa de preanalítica se está mostrando la tarjeta.
+//   "c1"  → Control 1 (primer paso)
+//   "c2"  → Control 2 (ve el Control 1 en solo lectura, marca el segundo)
+//   "obs" → Observados (edición completa para resolver)
+type Etapa = "c1" | "c2" | "obs";
+
 interface Props {
   control: AnyRecord;
   tipo: "pre" | "cob";
+  etapa?: Etapa;
 }
 
 // Etiquetas que preanalítica puede marcar al controlar una muestra.
@@ -43,7 +52,7 @@ const METODO_PAGO_LABEL: Record<string, string> = {
   mercadopago: "Mercado Pago",
 };
 
-export function ControlCard({ control, tipo }: Props) {
+export function ControlCard({ control, tipo, etapa = "obs" }: Props) {
   const router = useRouter();
   const retiro = control.retiro as AnyRecord;
   const personal = retiro?.personal as AnyRecord;
@@ -56,8 +65,15 @@ export function ControlCard({ control, tipo }: Props) {
   const [savedCtrl2, setSavedCtrl2] = useState(control.control_2 ?? "");
   const [estado, setEstado] = useState(control.estado ?? "pendiente");
   const [detalle, setDetalle] = useState(control.detalle ?? "");
+  const [detalle2, setDetalle2] = useState(control.detalle_2 ?? "");
   const [etiquetas, setEtiquetas] = useState<string[]>(control.etiquetas ?? []);
+  const [responsable1, setResponsable1] = useState<string | null>(control.responsable_1 ?? null);
+  const [responsable2, setResponsable2] = useState<string | null>(control.responsable_2 ?? null);
   const [saving, setSaving] = useState(false);
+
+  // En Control 2 las etiquetas del Control 1 quedan bloqueadas (solo lectura);
+  // el operador del segundo control puede agregar otras, pero no quitarlas.
+  const etiquetasBase = etapa === "c2" ? (control.etiquetas ?? []) as string[] : [];
 
   // Muestras editables (solo preanalítica) con confirmación.
   const [muestras, setMuestras] = useState(String(retiro?.cantidad_muestras ?? ""));
@@ -83,6 +99,7 @@ export function ControlCard({ control, tipo }: Props) {
   const preDetalle: string = pre?.detalle ?? "";
   const preEstado: string = pre?.estado ?? "pendiente";
   const preComentario: string = pre?.comentario ?? "";
+  const preFotos: string[] = pre?.fotos_urls ?? [];
   const preCancelado: boolean = !!pre?.cancelado;
   const preAnulado: boolean = preEtiquetas.some((e) => /anul/i.test(e));
   const preRojo: boolean = preCancelado || preAnulado;
@@ -99,8 +116,50 @@ export function ControlCard({ control, tipo }: Props) {
   const [match, setMatch] = useState<null | boolean>(null);
   const [savingCodigo, setSavingCodigo] = useState(false);
 
-  const toggleEtiqueta = (e: string) =>
+  const toggleEtiqueta = (e: string) => {
+    if (etiquetasBase.includes(e)) return; // bloqueada: viene del Control 1
     setEtiquetas((prev) => (prev.includes(e) ? prev.filter((x) => x !== e) : [...prev, e]));
+  };
+
+  // Guardado de una etapa (Control 1 o Control 2). El estado destino se deriva
+  // del control marcado, así un solo botón "Guardar" resuelve la etapa:
+  //   Control 1 = OK       → queda 'pendiente' y avanza a la solapa Control 2
+  //   Control 1 = Observar → 'observado'
+  //   Control 2 = OK       → 'ok' (Controlado)
+  //   Control 2 = Observar → 'observado'
+  async function guardarEtapa() {
+    const esC1 = etapa === "c1";
+    const valor = esC1 ? ctrl1 : ctrl2;
+    const responsable = esC1 ? responsable1 : responsable2;
+    if (!valor) { toast("warning", `Marcá el Control ${esC1 ? "1" : "2"} (OK u Observar)`); return; }
+    if (!responsable) { toast("warning", "Marcá quién hizo el control"); return; }
+
+    const nuevoEstado = valor === "observar" ? "observado" : esC1 ? "pendiente" : "ok";
+    setSaving(true);
+    const res = await fetch("/api/preanalitica/validar", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        controlId: control.id,
+        estado: nuevoEstado,
+        control1: ctrl1 || null,
+        control2: ctrl2 || null,
+        etiquetas,
+        detalle: detalle || null,
+        detalle2: detalle2 || null,
+        responsable1: responsable1 || null,
+        responsable2: responsable2 || null,
+      }),
+    });
+    const json = await res.json();
+    setSaving(false);
+    if (!res.ok) { toast("error", json.error ?? "Error al guardar"); return; }
+    const msg = valor === "observar"
+      ? "Pasó a Observados"
+      : esC1 ? "Control 1 OK · pasa a Control 2 ✓" : "Controlado ✓";
+    toast("success", msg);
+    router.refresh();
+  }
 
   async function guardarCodigo() {
     const nuevo = codigo.trim();
@@ -229,6 +288,9 @@ export function ControlCard({ control, tipo }: Props) {
         control2: ctrl2 || null,
         etiquetas,
         detalle: detalle || null,
+        detalle2: detalle2 || null,
+        responsable1: responsable1 || null,
+        responsable2: responsable2 || null,
       }),
     });
     const json = await res.json();
@@ -321,8 +383,64 @@ export function ControlCard({ control, tipo }: Props) {
           )}
         </div>
 
-        {/* Controls preanalítica: control 1 / control 2 / estado */}
-        {tipo === "pre" && (
+        {/* Control 2: resumen en solo lectura de lo cargado en el Control 1 */}
+        {tipo === "pre" && etapa === "c2" && (
+          <div className="mb-3 rounded-[8px] border border-gy200 bg-gy50 px-3 py-2.5">
+            <div className="flex items-center gap-1.5 mb-1.5">
+              <i className="ti ti-clipboard-check text-[13px] text-g600" />
+              <span className="text-[10px] font-semibold uppercase tracking-wide text-gy500">Control 1 (ya realizado)</span>
+              <span className="ml-auto inline-flex items-center gap-1 text-[10px] font-medium text-g700 bg-g50 border border-g200 rounded-full px-2 py-0.5">
+                <i className="ti ti-check" /> {savedCtrl1 === "ok" ? "OK" : savedCtrl1 || "—"}
+                {control.responsable_1 ? ` · ${control.responsable_1}` : ""}
+              </span>
+            </div>
+            {etiquetasBase.length > 0 && (
+              <div className="flex flex-wrap gap-1.5 mb-1.5">
+                {etiquetasBase.map((e) => (
+                  <span key={e} className="px-2 py-0.5 rounded-full text-[11px] bg-white text-g700 border border-g200">{e}</span>
+                ))}
+              </div>
+            )}
+            {control.detalle
+              ? <div className="text-[12px] text-gy700">{control.detalle}</div>
+              : etiquetasBase.length === 0 && <div className="text-[12px] text-gy400 italic">Sin etiquetas ni observaciones en el Control 1</div>}
+          </div>
+        )}
+
+        {/* Flujo por etapa (Control 1 / Control 2): un solo select + Guardar debajo */}
+        {tipo === "pre" && etapa !== "obs" && (
+          <div className="flex gap-5 mb-3 flex-wrap items-start">
+            <div className="w-[180px]">
+              <div className="text-[10px] font-semibold uppercase tracking-wide text-gy400 mb-1">
+                {etapa === "c1" ? "Control 1" : "Control 2"}
+              </div>
+              <select className="w-full px-2.5 py-1.5 border-2 border-gy200 rounded-[6px] text-[12px] bg-gy50 focus:outline-none focus:border-g500"
+                value={etapa === "c1" ? ctrl1 : ctrl2}
+                onChange={(e) => (etapa === "c1" ? setCtrl1(e.target.value) : setCtrl2(e.target.value))}>
+                <option value="">— Seleccionar —</option>
+                <option value="ok">OK</option>
+                <option value="observar">Observar</option>
+              </select>
+              {/* Guardar inmediatamente debajo del desplegable del control */}
+              <button onClick={guardarEtapa} disabled={saving}
+                className="mt-2 w-full flex items-center justify-center gap-1.5 px-3 py-1.5 text-[11px] font-medium bg-g700 text-white border border-g700 rounded-[6px] hover:bg-g800 disabled:opacity-50">
+                {saving
+                  ? <span className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  : <i className="ti ti-device-floppy text-[13px]" />}
+                Guardar
+              </button>
+            </div>
+            <div className="flex-1 min-w-[240px]">
+              <ResponsableSelector
+                value={etapa === "c1" ? responsable1 : responsable2}
+                onChange={etapa === "c1" ? setResponsable1 : setResponsable2}
+              />
+            </div>
+          </div>
+        )}
+
+        {/* Controls preanalítica (solo Observados): control 1 / control 2 / estado */}
+        {tipo === "pre" && etapa === "obs" && (
           <div className="grid grid-cols-3 gap-2.5 mb-3">
             <div>
               <div className="text-[10px] font-semibold uppercase tracking-wide text-gy400 mb-1 flex items-center gap-1">
@@ -387,6 +505,7 @@ export function ControlCard({ control, tipo }: Props) {
                 <span className={`ml-auto text-[10px] font-medium px-2 py-0.5 rounded-full border ${preEstado === "ok" ? "bg-g50 text-g700 border-g200" : preEstado === "observado" ? "bg-amber-bg text-amber-text border-amber/40" : preEstado === "rechazado" ? "bg-red-50 text-red-700 border-red-200" : "bg-white text-gy500 border-gy200"}`}>
                   {PRE_ESTADO_LABEL[preEstado] ?? preEstado}
                 </span>
+                <span title="Adjuntos de preanalítica"><AdjuntosPreanalitica fotos={preFotos} /></span>
               </div>
               {preEtiquetas.length > 0 && (
                 <div className="flex flex-wrap gap-1.5 mb-1.5">
@@ -426,14 +545,18 @@ export function ControlCard({ control, tipo }: Props) {
 
         {tipo === "pre" && (
           <div className="mb-3">
-            <div className="text-[10px] font-semibold uppercase tracking-wide text-gy400 mb-1.5">Etiquetas</div>
+            <div className="text-[10px] font-semibold uppercase tracking-wide text-gy400 mb-1.5">
+              Etiquetas{etapa === "c2" && <span className="ml-1 normal-case tracking-normal text-gy400 font-normal">(las del Control 1 quedan fijas; podés agregar más)</span>}
+            </div>
             <div className="flex flex-wrap gap-1.5">
               {ETIQUETAS_PRE.map((e) => {
                 const on = etiquetas.includes(e);
+                const locked = etiquetasBase.includes(e);
                 return (
-                  <button key={e} type="button" onClick={() => toggleEtiqueta(e)}
-                    className={`px-2.5 py-1 rounded-full text-[11px] border transition-colors ${on ? "bg-g700 text-white border-g700" : "bg-gy50 text-gy600 border-gy200 hover:border-g400 hover:text-g700"}`}>
-                    {on && <i className="ti ti-check text-[11px] mr-1" />}{e}
+                  <button key={e} type="button" onClick={() => toggleEtiqueta(e)} disabled={locked}
+                    title={locked ? "Etiqueta del Control 1 (no se puede quitar)" : undefined}
+                    className={`px-2.5 py-1 rounded-full text-[11px] border transition-colors ${on ? "bg-g700 text-white border-g700" : "bg-gy50 text-gy600 border-gy200 hover:border-g400 hover:text-g700"} ${locked ? "opacity-90 cursor-default" : ""}`}>
+                    {locked ? <i className="ti ti-lock text-[11px] mr-1" /> : on && <i className="ti ti-check text-[11px] mr-1" />}{e}
                   </button>
                 );
               })}
@@ -471,33 +594,38 @@ export function ControlCard({ control, tipo }: Props) {
         )}
 
         <div className="mb-3">
-          <div className="text-[10px] font-semibold uppercase tracking-wide text-gy400 mb-1">Detalle / Observación</div>
+          <div className="text-[10px] font-semibold uppercase tracking-wide text-gy400 mb-1">
+            {etapa === "c2" ? "Observación del Control 2" : "Detalle / Observación"}
+          </div>
           <input type="text"
             className="w-full px-2.5 py-1.5 border-2 border-gy200 rounded-[6px] text-[12px] bg-gy50 focus:outline-none focus:border-g500"
             placeholder={tipo === "pre" ? "Describir si hay observación..." : "Observaciones de cobranza..."}
-            value={detalle} onChange={(e) => setDetalle(e.target.value)} />
+            value={etapa === "c2" ? detalle2 : detalle}
+            onChange={(e) => (etapa === "c2" ? setDetalle2(e.target.value) : setDetalle(e.target.value))} />
         </div>
 
-        {tipo === "pre" && sugerido && (
+        {tipo === "pre" && etapa === "obs" && sugerido && (
           <div className={`mb-2 inline-flex items-center gap-1.5 text-[11px] font-medium px-2.5 py-1 rounded-full border ${sugerido === "ok" ? "bg-g50 text-g700 border-g200" : "bg-amber-bg text-amber-text border-amber/40"}`}>
             <i className={`ti ${sugerido === "ok" ? "ti-circle-check" : "ti-alert-triangle"} text-[13px]`} />
             Estado sugerido: {sugerido === "ok" ? "Controlado OK" : "Observado"}
           </div>
         )}
         <div className="flex items-center gap-2 flex-wrap">
-          {tipo === "pre" && (
+          {tipo === "pre" && etapa === "obs" && (
             <button onClick={() => save("pendiente")} disabled={saving}
-              title="Guarda el avance (control 1) sin finalizar. El control 2 puede hacerse después."
+              title="Guarda el avance sin finalizar."
               className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-medium bg-gy50 text-gy700 border border-gy200 rounded-[6px] hover:bg-gy100 disabled:opacity-50">
               <i className="ti ti-device-floppy text-[13px]" /> Guardar
             </button>
           )}
-          <button onClick={() => save(tipo === "pre" ? "ok" : "adjudicado")} disabled={saving}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-medium bg-g50 text-g700 border border-g200 rounded-[6px] hover:bg-g100 disabled:opacity-50">
-            <i className="ti ti-check text-[13px]" />
-            {tipo === "pre" ? "Controlado OK" : "Adjudicado OK"}
-          </button>
-          {tipo === "pre" && (
+          {(tipo === "cob" || (tipo === "pre" && etapa === "obs")) && (
+            <button onClick={() => save(tipo === "pre" ? "ok" : "adjudicado")} disabled={saving}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-medium bg-g50 text-g700 border border-g200 rounded-[6px] hover:bg-g100 disabled:opacity-50">
+              <i className="ti ti-check text-[13px]" />
+              {tipo === "pre" ? "Controlado OK" : "Adjudicado OK"}
+            </button>
+          )}
+          {tipo === "pre" && etapa === "obs" && (
             <button onClick={() => save("observado")} disabled={saving}
               className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-medium bg-amber-bg text-amber-text border border-amber/40 rounded-[6px] hover:bg-amber/10 disabled:opacity-50">
               <i className="ti ti-eye text-[13px]" /> Observar
