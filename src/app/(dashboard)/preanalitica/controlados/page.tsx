@@ -36,7 +36,8 @@ export default async function PreanaliticaControladosPage({
     ? (rows ?? [])
     : (rows ?? []).filter((c) => {
         const r = c.retiro as any;
-        return [r?.personal?.nombre, r?.veterinaria_texto_original, r?.codigo_original]
+        const etiquetas = Array.isArray(c.etiquetas) ? (c.etiquetas as string[]) : [];
+        return [r?.personal?.nombre, r?.veterinaria_texto_original, r?.codigo_original, ...etiquetas]
           .some((v) => String(v ?? "").toLowerCase().includes(term));
       });
 
@@ -70,8 +71,9 @@ export default async function PreanaliticaControladosPage({
               className="px-2.5 py-1.5 border-2 border-gy200 rounded-[8px] text-[12px] bg-gy50 focus:outline-none focus:border-g500" />
           </div>
           <div className="flex-1 min-w-[200px] max-w-[320px]">
-            <label className="block text-[10px] font-semibold uppercase tracking-wide text-gy400 mb-1">Buscar (cadete, veterinaria, código)</label>
-            <input type="text" name="q" defaultValue={q ?? ""} placeholder="Buscar…"
+            <label className="block text-[10px] font-semibold uppercase tracking-wide text-gy400 mb-1">Buscar (cadete, veterinaria, código o etiqueta)</label>
+            {/* Sin defaultValue: tras buscar, la caja queda limpia para el próximo dato. */}
+            <input type="text" name="q" placeholder="Buscar…"
               className="w-full px-2.5 py-1.5 border-2 border-gy200 rounded-[8px] text-[12px] bg-gy50 focus:outline-none focus:border-g500" />
           </div>
           <button type="submit"
@@ -81,8 +83,14 @@ export default async function PreanaliticaControladosPage({
               className="px-3.5 py-1.5 bg-white border border-gy200 text-gy600 text-[12px] font-medium rounded-[8px] hover:bg-gy50">Limpiar</a>
           )}
         </form>
-        <div className="mt-2 text-[11px] text-gy400">
-          {desde || hasta ? "Mostrando el período seleccionado" : "Mostrando controlados de hoy"} · {controles.length} registro{controles.length !== 1 ? "s" : ""}
+        <div className="mt-2 flex items-center gap-2 text-[11px] text-gy400">
+          <span>{desde || hasta ? "Mostrando el período seleccionado" : "Mostrando controlados de hoy"} · {controles.length} registro{controles.length !== 1 ? "s" : ""}</span>
+          {term && (
+            <a href={`/preanalitica/controlados${desde || hasta ? `?${new URLSearchParams({ ...(desde ? { desde } : {}), ...(hasta ? { hasta } : {}) }).toString()}` : ""}`}
+              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] bg-g50 text-g700 border border-g700/30 hover:bg-g100">
+              Filtrando: {q} <i className="ti ti-x text-[11px]" />
+            </a>
+          )}
         </div>
       </div>
       <div className="p-6">

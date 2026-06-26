@@ -28,8 +28,8 @@ export default async function DashboardPage() {
     { count: sin_codigo },
     { count: duplicados },
   ] = await Promise.all([
-    supabase.from("retiros").select("*", { count: "exact", head: true }).eq("fecha_operativa", today).eq("anulado", false),
-    supabase.from("retiros").select("*", { count: "exact", head: true }).gte("fecha_operativa", firstDayMonth).eq("anulado", false),
+    supabase.from("retiros").select("*", { count: "exact", head: true }).eq("fecha_operativa", today).eq("anulado", false).neq("estado", "duplicado_sospechoso" as any),
+    supabase.from("retiros").select("*", { count: "exact", head: true }).gte("fecha_operativa", firstDayMonth).eq("anulado", false).neq("estado", "duplicado_sospechoso" as any),
     supabase.from("retiros").select("importe_declarado, cantidad_muestras").eq("anulado", false).neq("estado", "duplicado_sospechoso" as any).gte("fecha_operativa", firstDayMonth),
     supabase.from("pedidos_retiro").select("*", { count: "exact", head: true }).in("estado", ["asignado", "en_proceso"]),
     supabase.from("pedidos_retiro").select("*", { count: "exact", head: true }).eq("estado", "vencido"),

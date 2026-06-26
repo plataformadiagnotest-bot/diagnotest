@@ -85,6 +85,7 @@ export function ControlCard({ control, tipo, etapa = "obs" }: Props) {
   const [fotos, setFotos] = useState<string[]>(control.fotos_urls ?? []);
   const [subiendoFoto, setSubiendoFoto] = useState(false);
   const fotoInput = useRef<HTMLInputElement>(null);
+  const fotoCamInput = useRef<HTMLInputElement>(null);
 
   // Automatización de estado sugerido a partir de los controles.
   const sugerido = ctrl1 === "observar" || ctrl2 === "observar"
@@ -246,6 +247,7 @@ export function ControlCard({ control, tipo, etapa = "obs" }: Props) {
     }
     setSubiendoFoto(false);
     if (fotoInput.current) fotoInput.current.value = "";
+    if (fotoCamInput.current) fotoCamInput.current.value = "";
   }
 
   async function quitarFoto(url: string) {
@@ -585,13 +587,21 @@ export function ControlCard({ control, tipo, etapa = "obs" }: Props) {
                   </button>
                 </div>
               ))}
+              {/* Cámara: en tablets/celulares abre directo la cámara para sacar la foto. */}
+              <input ref={fotoCamInput} type="file" accept="image/*" capture="environment" className="hidden"
+                onChange={(e) => adjuntarFotos(e.target.files)} />
+              {/* Archivo: galería o archivos del dispositivo (permite varias). */}
               <input ref={fotoInput} type="file" accept="image/*" multiple className="hidden"
                 onChange={(e) => adjuntarFotos(e.target.files)} />
-              <button type="button" onClick={() => fotoInput.current?.click()} disabled={subiendoFoto}
+              <button type="button" onClick={() => fotoCamInput.current?.click()} disabled={subiendoFoto}
                 className="w-16 h-16 rounded-[8px] border-2 border-dashed border-gy200 text-gy400 hover:border-g400 hover:text-g600 flex flex-col items-center justify-center gap-0.5 disabled:opacity-50">
                 {subiendoFoto
                   ? <span className="w-4 h-4 border-2 border-gy300 border-t-g600 rounded-full animate-spin" />
-                  : <><i className="ti ti-camera-plus text-[16px]" /><span className="text-[9px]">Adjuntar</span></>}
+                  : <><i className="ti ti-camera text-[16px]" /><span className="text-[9px]">Cámara</span></>}
+              </button>
+              <button type="button" onClick={() => fotoInput.current?.click()} disabled={subiendoFoto}
+                className="w-16 h-16 rounded-[8px] border-2 border-dashed border-gy200 text-gy400 hover:border-g400 hover:text-g600 flex flex-col items-center justify-center gap-0.5 disabled:opacity-50">
+                <i className="ti ti-paperclip text-[16px]" /><span className="text-[9px]">Archivo</span>
               </button>
             </div>
           </div>

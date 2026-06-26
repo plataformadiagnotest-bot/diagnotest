@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { Topbar } from "@/components/layout/Topbar";
-import { ControlCard } from "@/components/ui/ControlCard";
+import { ObservadosList } from "@/components/preanalitica/ObservadosList";
 
 export default async function PreanaliticaObservadosPage() {
   const supabase = await createClient();
@@ -32,17 +32,7 @@ export default async function PreanaliticaObservadosPage() {
           </div>
         </div>
 
-        {!controles?.length ? (
-          <div className="bg-white rounded-[14px] border border-gy200 shadow-sm py-12 text-center text-gy400 text-[13px]">
-            Sin registros observados
-          </div>
-        ) : (
-          <div className="space-y-3.5">
-            {controles.map((c) => (
-              <ControlCard key={c.id} control={c} tipo="pre" />
-            ))}
-          </div>
-        )}
+        <ObservadosList controles={controles ?? []} />
       </div>
     </div>
   );
