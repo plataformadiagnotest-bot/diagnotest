@@ -2,7 +2,6 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { Topbar } from "@/components/layout/Topbar";
 import { EtiquetasChips } from "@/components/preanalitica/EtiquetasChips";
-import { ControlValor } from "@/components/preanalitica/ControlValor";
 import { AdjuntosPreanalitica } from "@/components/preanalitica/AdjuntosPreanalitica";
 import { ControladoAcciones } from "@/components/preanalitica/ControladoAcciones";
 import { formatDateTime } from "@/lib/utils/dates";
@@ -92,7 +91,7 @@ export default async function PreanaliticaControladosPage({
             <table className="w-full border-collapse text-[12px]">
               <thead>
                 <tr className="bg-gy50">
-                  {["Código", "Personal", "Veterinaria", "Muestras", "Control 1", "Control 2", "Etiquetas", "Comentario", "Adjuntos", "Responsable", "Hora", "Acciones"].map((h) => (
+                  {["Código", "Personal", "Veterinaria", "Muestras", "Obs. Control 1", "Obs. Control 2", "Etiquetas", "Comentario", "Adjuntos", "Responsable", "Hora", "Acciones"].map((h) => (
                     <th key={h} className="px-3.5 py-2.5 text-left text-[10px] font-bold uppercase tracking-wide text-gy400 border-b border-gy200">{h}</th>
                   ))}
                 </tr>
@@ -111,8 +110,12 @@ export default async function PreanaliticaControladosPage({
                       <td className="px-3.5 py-2.5 font-medium">{r?.personal?.nombre ?? "—"}</td>
                       <td className="px-3.5 py-2.5">{r?.veterinaria_texto_original}</td>
                       <td className="px-3.5 py-2.5 text-center font-semibold">{r?.cantidad_muestras}</td>
-                      <td className="px-3.5 py-2.5"><ControlValor valor={c.control_1} /></td>
-                      <td className="px-3.5 py-2.5"><ControlValor valor={c.control_2} /></td>
+                      <td className="px-3.5 py-2.5 text-gy600 max-w-[200px]">
+                        {c.detalle ? <span className="text-[11px]">{c.detalle}</span> : <span className="text-gy300">—</span>}
+                      </td>
+                      <td className="px-3.5 py-2.5 text-gy600 max-w-[200px]">
+                        {c.detalle_2 ? <span className="text-[11px]">{c.detalle_2}</span> : <span className="text-gy300">—</span>}
+                      </td>
                       <td className="px-3.5 py-2.5"><EtiquetasChips etiquetas={c.etiquetas} /></td>
                       <td className="px-3.5 py-2.5 text-gy600 max-w-[200px]">
                         {c.comentario ? <span className="text-[11px]">{c.comentario}</span> : <span className="text-gy300">—</span>}
