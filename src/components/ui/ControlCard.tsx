@@ -111,8 +111,12 @@ export function ControlCard({ control, tipo, etapa = "obs" }: Props) {
   };
 
   // Código de veterinaria editable (preanalítica / cobranzas / super admin).
-  const [codigo, setCodigo] = useState(retiro?.codigo_original ?? "");
-  const [vetNombre, setVetNombre] = useState(retiro?.veterinaria_texto_original ?? "");
+  // Si el retiro se cargó por nombre y no quedó código suelto, se usa el código
+  // de la veterinaria maestra vinculada (join veterinaria_id) como respaldo, así
+  // siempre se ve código + nombre sin importar cómo lo ingresó el cadete.
+  const vetMaster = (retiro as { veterinaria?: { codigo?: string; nombre?: string } | null } | null)?.veterinaria ?? null;
+  const [codigo, setCodigo] = useState(retiro?.codigo_original ?? vetMaster?.codigo ?? "");
+  const [vetNombre, setVetNombre] = useState(retiro?.veterinaria_texto_original ?? vetMaster?.nombre ?? "");
   const [match, setMatch] = useState<null | boolean>(null);
   const [savingCodigo, setSavingCodigo] = useState(false);
 

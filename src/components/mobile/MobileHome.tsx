@@ -152,11 +152,13 @@ export function MobileHome({ nombre, zonaNombre, personalId, profileId, veterina
   function matchVet(value: string) {
     setVetTexto(value);
     const val = value.trim();
-    const valLow = val.toLowerCase();
-    // Coincidencia por valor combinado "código — nombre", por código exacto o por nombre.
+    const valNorm = normVet(val);
+    // Coincidencia por valor combinado "código — nombre", por código o por nombre.
+    // Se normaliza (acentos/espacios/mayúsculas) para que escribir el nombre de una
+    // vete conocida resuelva siempre su código maestro, sin importar tildes ni espacios.
     const m = veterinarias.find((v) => `${v.codigo} — ${v.nombre}` === val)
-      ?? veterinarias.find((v) => v.codigo.toLowerCase() === valLow)
-      ?? veterinarias.find((v) => v.nombre.toLowerCase() === valLow);
+      ?? veterinarias.find((v) => normVet(v.codigo) === valNorm)
+      ?? veterinarias.find((v) => normVet(v.nombre) === valNorm);
     if (m) { setVetId(m.id); setCodigo(m.codigo); } else { setVetId(null); }
   }
 
