@@ -256,7 +256,14 @@ export function ControlCard({ control, tipo }: Props) {
             className="w-24 px-2 py-1 font-mono text-[12px] font-medium text-gy700 bg-white border border-gy200 rounded-[6px] focus:outline-none focus:border-g500 disabled:opacity-50"
           />
         </div>
-        <span className="text-[14px] font-semibold text-gy900 flex-1">{vetNombre || "—"}</span>
+        <span className="text-[14px] font-semibold text-gy900">{vetNombre || "—"}</span>
+        {retiro?.segunda_visita && (
+          <span className="inline-flex items-center gap-1 text-[10px] font-bold text-orange-700 bg-orange-100 border border-orange-300 rounded-full px-2 py-0.5"
+            title="El cadete registró otra visita de esta veterinaria el mismo día y la confirmó como visita real (no es un duplicado).">
+            <i className="ti ti-repeat" /> 2ª visita
+          </span>
+        )}
+        <span className="flex-1" />
         {match === true && (
           <span className="inline-flex items-center gap-1 text-[10px] font-medium text-g700 bg-g50 border border-g200 rounded-full px-2 py-0.5">
             <i className="ti ti-check" /> Vinculada
@@ -273,12 +280,6 @@ export function ControlCard({ control, tipo }: Props) {
             className="inline-flex items-center gap-1 text-[11px] font-medium text-g700 hover:text-g800 hover:underline">
             <i className="ti ti-photo text-[13px]" /> Ver ticket
           </a>
-        )}
-        {retiro?.segunda_visita && (
-          <span className="inline-flex items-center gap-1 text-[10px] font-bold text-orange-700 bg-orange-100 border border-orange-300 rounded-full px-2 py-0.5"
-            title="El cadete registró otra visita de esta veterinaria el mismo día y la confirmó como visita real (no es un duplicado).">
-            <i className="ti ti-repeat" /> 2ª visita
-          </span>
         )}
         {tipo === "pre" && yaObservado && (
           <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-amber-text bg-amber-bg border border-amber/40 rounded-full px-2 py-0.5">
