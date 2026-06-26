@@ -209,9 +209,12 @@ create index idx_auditoria_fecha on auditoria(fecha_hora desc);
 create or replace function create_controls_on_retiro()
 returns trigger language plpgsql security definer as $$
 begin
-  insert into control_preanalitica (retiro_id, urgente)
-  values (new.id, new.urgente)
-  on conflict (retiro_id) do nothing;
+  -- Solo se controla en preanalítica si hay muestras (0 muestras = sin control).
+  if coalesce(new.cantidad_muestras, 0) > 0 then
+    insert into control_preanalitica (retiro_id, urgente)
+    values (new.id, new.urgente)
+    on conflict (retiro_id) do nothing;
+  end if;
 
   insert into control_cobranzas (retiro_id, importe_declarado)
   values (new.id, new.importe_declarado)
