@@ -2,6 +2,8 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { Topbar } from "@/components/layout/Topbar";
 import { StatCard } from "@/components/ui/StatCard";
+import { DashboardTabs } from "@/components/dashboard/DashboardTabs";
+import { ResumenPendientesEtapa } from "@/components/preanalitica/ResumenPendientesEtapa";
 import { fmtMoneySign, fmtMoney } from "@/lib/utils/format";
 import { esDireccion, landingPathForRole } from "@/lib/utils/roles";
 
@@ -54,7 +56,11 @@ export default async function DashboardPage() {
   return (
     <div>
       <Topbar title="Dashboard Operativo" />
-      <div className="p-6 space-y-5">
+      <div className="p-6">
+        <DashboardTabs
+          operativo={<ResumenPendientesEtapa />}
+          general={
+        <div className="space-y-5">
         {(pedidos_vencidos ?? 0) > 0 && (
           <div className="flex items-start gap-3 bg-blue-50 border border-blue-200 rounded-[10px] px-4 py-3 text-[12px] text-blue-800">
             <i className="ti ti-map-pin text-[16px] mt-0.5 shrink-0" />
@@ -194,6 +200,9 @@ export default async function DashboardPage() {
             {duplicados ?? 2} duplicados sospechosos
           </div>
         </div>
+        </div>
+          }
+        />
       </div>
     </div>
   );

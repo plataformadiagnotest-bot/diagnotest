@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { Topbar } from "@/components/layout/Topbar";
 import { StatCard } from "@/components/ui/StatCard";
 import { PreanaliticaBandeja } from "@/components/preanalitica/PreanaliticaBandeja";
+import { ResumenPendientesEtapa } from "@/components/preanalitica/ResumenPendientesEtapa";
 import { RecaudadoHoy } from "@/components/caja/RecaudadoHoy";
 import { MuestrasPorCadete } from "@/components/caja/MuestrasPorCadete";
 
@@ -57,6 +58,8 @@ export default async function PreanaliticaPage() {
           <StatCard label="Controlados hoy" value={controladosHoy ?? 0} />
           <StatCard label="Observados" value={observados ?? 0} accent="warn" />
         </div>
+
+        <ResumenPendientesEtapa />
 
         <div className="grid grid-cols-2 gap-3.5">
           <MuestrasPorCadete />
