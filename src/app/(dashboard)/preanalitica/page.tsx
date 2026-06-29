@@ -5,10 +5,11 @@ import { PreanaliticaBandeja } from "@/components/preanalitica/PreanaliticaBande
 import { ResumenPendientesEtapa } from "@/components/preanalitica/ResumenPendientesEtapa";
 import { RecaudadoHoy } from "@/components/caja/RecaudadoHoy";
 import { MuestrasPorCadete } from "@/components/caja/MuestrasPorCadete";
+import { todayISO, baDayStartUTC } from "@/lib/utils/dates";
 
 export default async function PreanaliticaPage() {
   const supabase = await createClient();
-  const today = new Date().toISOString().split("T")[0];
+  const today = todayISO();
 
   // Todo lo pendiente/observado, sin filtrar por fecha: lo que quedó sin
   // controlar de días anteriores tiene que seguir viéndose. La bandeja lo
@@ -38,7 +39,7 @@ export default async function PreanaliticaPage() {
       .from("control_preanalitica")
       .select("id", { count: "exact", head: true })
       .eq("estado", "ok")
-      .gte("updated_at", today + "T00:00:00Z"),
+      .gte("updated_at", baDayStartUTC(today)),
     supabase
       .from("control_preanalitica")
       .select("id", { count: "exact", head: true })

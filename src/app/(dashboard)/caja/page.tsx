@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { Topbar } from "@/components/layout/Topbar";
 import { esDireccion, landingPathForRole } from "@/lib/utils/roles";
+import { todayISO } from "@/lib/utils/dates";
 import { ControlCaja } from "@/components/caja/ControlCaja";
 import type { RendicionCadete, RevisadoRow } from "@/components/caja/ControlCaja";
 
@@ -22,8 +23,7 @@ export default async function CajaPage({
   if (!esDireccion(rolRow?.rol)) redirect(landingPathForRole(rolRow?.rol));
 
   const { fecha: fechaParam } = await searchParams;
-  const today = new Date().toISOString().split("T")[0];
-  const fecha = fechaParam || today;
+  const fecha = fechaParam || todayISO();
 
   const admin = createAdminClient();
   // Pendientes = caja abierta de cada cadete: retiros/gastos NO validados

@@ -6,6 +6,7 @@ import { DashboardTabs } from "@/components/dashboard/DashboardTabs";
 import { ResumenPendientesEtapa } from "@/components/preanalitica/ResumenPendientesEtapa";
 import { fmtMoneySign, fmtMoney } from "@/lib/utils/format";
 import { esDireccion, landingPathForRole } from "@/lib/utils/roles";
+import { todayISO } from "@/lib/utils/dates";
 
 export default async function DashboardPage() {
   const supabase = await createClient();
@@ -16,7 +17,7 @@ export default async function DashboardPage() {
   const { data: rolRow } = await supabase.from("profiles").select("rol").eq("id", user.id).single();
   if (!esDireccion(rolRow?.rol)) redirect(landingPathForRole(rolRow?.rol));
 
-  const today = new Date().toISOString().split("T")[0];
+  const today = todayISO();
   const firstDayMonth = today.slice(0, 7) + "-01";
 
   const [

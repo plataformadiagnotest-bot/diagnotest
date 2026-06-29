@@ -3,7 +3,7 @@ import { Topbar } from "@/components/layout/Topbar";
 import { PillStatus } from "@/components/ui/PillStatus";
 import { StatCard } from "@/components/ui/StatCard";
 import { fmtMoney } from "@/lib/utils/format";
-import { formatDateTime } from "@/lib/utils/dates";
+import { formatDateTime, todayISO, daysAgoISO } from "@/lib/utils/dates";
 import { EliminarRetiro } from "@/components/retiros/EliminarRetiro";
 import Link from "next/link";
 
@@ -39,8 +39,8 @@ export default async function RetirosPage({
   // Por defecto, el personal de logística ve sus retiros de hoy
   const filter = f ?? (isPersonal ? "hoy" : "todos");
 
-  const today = new Date().toISOString().split("T")[0];
-  const weekAgo = new Date(Date.now() - 6 * 86400000).toISOString().split("T")[0];
+  const today = todayISO();
+  const weekAgo = daysAgoISO(6);
 
   // Si es personal de logística, se acota a su propio personal_id.
   let personalId: string | null = null;

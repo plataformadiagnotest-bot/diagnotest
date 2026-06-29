@@ -1,11 +1,12 @@
 import { createClient } from "@/lib/supabase/server";
 import { fmtMoneySign } from "@/lib/utils/format";
+import { todayISO } from "@/lib/utils/dates";
 
 // Resumen del total recaudado por cada cadete en el día — solo el total,
 // para poder pasarle al chico de logística cuánto debe rendir.
 export async function RecaudadoHoy({ fecha }: { fecha?: string }) {
   const supabase = await createClient();
-  const dia = fecha || new Date().toISOString().split("T")[0];
+  const dia = fecha || todayISO();
 
   const { data: retiros } = await supabase
     .from("retiros")

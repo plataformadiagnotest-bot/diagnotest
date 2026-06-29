@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { ControlCard } from "@/components/ui/ControlCard";
+import { todayISO, daysAgoISO } from "@/lib/utils/dates";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyRecord = Record<string, any>;
@@ -28,14 +29,11 @@ function etapaDe(c: AnyRecord): Etapa {
 }
 
 // Encabezado legible para los grupos por fecha: "Hoy", "Ayer" o la fecha formateada.
+// El "hoy/ayer" se compara contra la fecha de Buenos Aires (no la del navegador).
 function etiquetaFecha(iso: string): string {
   if (!iso || iso === "Sin fecha") return "Sin fecha";
-  const hoy = new Date();
-  const ayer = new Date();
-  ayer.setDate(hoy.getDate() - 1);
-  const f = (d: Date) => d.toISOString().split("T")[0];
-  if (iso === f(hoy)) return "Hoy";
-  if (iso === f(ayer)) return "Ayer";
+  if (iso === todayISO()) return "Hoy";
+  if (iso === daysAgoISO(1)) return "Ayer";
   const [y, m, d] = iso.split("-");
   return new Date(Number(y), Number(m) - 1, Number(d)).toLocaleDateString("es-AR", {
     weekday: "long", day: "numeric", month: "long",

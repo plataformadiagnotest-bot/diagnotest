@@ -1,10 +1,11 @@
 import { createClient } from "@/lib/supabase/server";
+import { todayISO } from "@/lib/utils/dates";
 
 // Sumatoria de muestras por cadete en el día — para preanalítica, así sabe
 // cuántas muestras debería recibir de cada cadete.
 export async function MuestrasPorCadete({ fecha }: { fecha?: string }) {
   const supabase = await createClient();
-  const dia = fecha || new Date().toISOString().split("T")[0];
+  const dia = fecha || todayISO();
 
   const { data: retiros } = await supabase
     .from("retiros")

@@ -3,7 +3,7 @@ import { Topbar } from "@/components/layout/Topbar";
 import { StatCard } from "@/components/ui/StatCard";
 import { PillStatus } from "@/components/ui/PillStatus";
 import { fmtMoneySign } from "@/lib/utils/format";
-import { formatTime } from "@/lib/utils/dates";
+import { formatTime, todayISO } from "@/lib/utils/dates";
 import { RecaudadoHoy } from "@/components/caja/RecaudadoHoy";
 
 export default async function PorPersonalPage({
@@ -12,7 +12,7 @@ export default async function PorPersonalPage({
   searchParams: Promise<{ personal?: string; fecha?: string }>;
 }) {
   const supabase = await createClient();
-  const today = new Date().toISOString().split("T")[0];
+  const today = todayISO();
   const { personal: personalParam, fecha: fechaParam } = await searchParams;
   const fecha = fechaParam || today;
 

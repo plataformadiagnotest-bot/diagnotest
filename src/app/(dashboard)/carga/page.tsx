@@ -1,6 +1,7 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { Topbar } from "@/components/layout/Topbar";
 import { TablaControladosRO } from "@/components/preanalitica/TablaControladosRO";
+import { todayISO, baDayStartUTC, baDayEndUTC } from "@/lib/utils/dates";
 
 // El cliente admin no lee cookies; sin esto Next.js cachea la consulta GET
 // y muestra datos viejos. Forzamos render dinámico y datos frescos.
@@ -18,8 +19,7 @@ export default async function CargaPage({
   const admin = createAdminClient();
 
   // Por defecto, controlados de hoy; el rol carga es de solo lectura.
-  const today = new Date().toISOString().split("T")[0];
-  const desdeEf = desde || (hasta ? undefined : today);
+  const desdeEf = desde || (hasta ? undefined : todayISO());
 
   let query = admin
     .from("control_preanalitica")
@@ -28,8 +28,8 @@ export default async function CargaPage({
     .order("updated_at", { ascending: false })
     .limit(500);
 
-  if (desdeEf) query = query.gte("updated_at", desdeEf + "T00:00:00Z");
-  if (hasta) query = query.lte("updated_at", hasta + "T23:59:59Z");
+  if (desdeEf) query = query.gte("updated_at", baDayStartUTC(desdeEf));
+  if (hasta) query = query.lt("updated_at", baDayEndUTC(hasta));
 
   const { data: rows } = await query;
 

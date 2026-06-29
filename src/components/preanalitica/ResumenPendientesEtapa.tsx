@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { daysAgoISO } from "@/lib/utils/dates";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyRecord = Record<string, any>;
@@ -16,9 +17,7 @@ export async function ResumenPendientesEtapa() {
   const supabase = await createClient();
 
   const dias: string[] = [];
-  for (let i = 0; i < 4; i++) {
-    dias.push(new Date(Date.now() - i * 86400000).toISOString().split("T")[0]);
-  }
+  for (let i = 0; i < 4; i++) dias.push(daysAgoISO(i));
   const desde = dias[dias.length - 1];
 
   // Mismos filtros que la bandeja: no cuentan anulados ni duplicados sospechosos.

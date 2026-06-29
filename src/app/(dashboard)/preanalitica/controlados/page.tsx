@@ -4,7 +4,7 @@ import { Topbar } from "@/components/layout/Topbar";
 import { EtiquetasChips } from "@/components/preanalitica/EtiquetasChips";
 import { AdjuntosPreanalitica } from "@/components/preanalitica/AdjuntosPreanalitica";
 import { ControladoAcciones } from "@/components/preanalitica/ControladoAcciones";
-import { formatDateTime } from "@/lib/utils/dates";
+import { formatDateTime, todayISO, baDayStartUTC, baDayEndUTC } from "@/lib/utils/dates";
 import { esCanceladoOAnulado, etiquetaRojo } from "@/lib/utils/preanalitica";
 
 export default async function PreanaliticaControladosPage({
@@ -16,8 +16,7 @@ export default async function PreanaliticaControladosPage({
   const { desde, hasta, q } = await searchParams;
 
   // Sin filtro de fechas, por defecto se muestran los controlados de hoy.
-  const today = new Date().toISOString().split("T")[0];
-  const desdeEf = desde || (hasta ? undefined : today);
+  const desdeEf = desde || (hasta ? undefined : todayISO());
 
   let query = supabase
     .from("control_preanalitica")
@@ -26,8 +25,8 @@ export default async function PreanaliticaControladosPage({
     .order("updated_at", { ascending: false })
     .limit(500);
 
-  if (desdeEf) query = query.gte("updated_at", desdeEf + "T00:00:00Z");
-  if (hasta) query = query.lte("updated_at", hasta + "T23:59:59Z");
+  if (desdeEf) query = query.gte("updated_at", baDayStartUTC(desdeEf));
+  if (hasta) query = query.lt("updated_at", baDayEndUTC(hasta));
 
   const { data: rows } = await query;
 
