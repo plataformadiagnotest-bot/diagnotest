@@ -39,6 +39,16 @@ export default async function RetirosPage({
   // Por defecto, el personal de logística ve sus retiros de hoy
   const filter = f ?? (isPersonal ? "hoy" : "todos");
 
+  const today = new Date().toISOString().split("T")[0];
+  const weekAgo = new Date(Date.now() - 6 * 86400000).toISOString().split("T")[0];
+
+  // Si es personal de logística, se acota a su propio personal_id.
+  let personalId: string | null = null;
+  if (isPersonal) {
+    const { data: pers } = await supabase.from("personal").select("id").eq("profile_id", user!.id).single();
+    personalId = pers?.id ?? null;
+  }
+
   let query = supabase
     .from("retiros")
     .select(`
@@ -51,32 +61,31 @@ export default async function RetirosPage({
     `)
     .eq("anulado", false)
     .order("timestamp_carga", { ascending: false })
-    .limit(100);
+    .limit(1000);
 
-  if (isPersonal) {
-    const { data: pers } = await supabase.from("personal").select("id").eq("profile_id", user!.id).single();
-    if (pers) query = query.eq("personal_id", pers.id);
-  }
+  if (personalId) query = query.eq("personal_id", personalId);
+
+  // Los filtros de fecha van a la base de datos: si se aplicaran después del
+  // límite, solo se filtrarían los últimos N cargados y las fechas viejas
+  // quedarían invisibles. Así el rango pedido se trae completo desde la base.
+  if (desde) query = query.gte("fecha_operativa", desde);
+  if (hasta) query = query.lte("fecha_operativa", hasta);
+  if (filter === "hoy") query = query.eq("fecha_operativa", today);
+  if (filter === "semana") query = query.gte("fecha_operativa", weekAgo);
 
   const { data: allRetiros } = await query;
-
-  const today = new Date().toISOString().split("T")[0];
-  const weekAgo = new Date(Date.now() - 6 * 86400000).toISOString().split("T")[0];
 
   const preOf = (r: any) => Array.isArray(r.control_preanalitica) ? r.control_preanalitica[0]?.estado : (r.control_preanalitica)?.estado;
   const cobOf = (r: any) => Array.isArray(r.control_cobranzas) ? r.control_cobranzas[0]?.estado : (r.control_cobranzas)?.estado;
 
+  // Filtros que no son de fecha se resuelven en memoria sobre lo ya traído.
   const codTerm = (cod ?? "").trim().toLowerCase();
   const retiros = (allRetiros ?? []).filter((r) => {
-    if (desde && r.fecha_operativa < desde) return false;
-    if (hasta && r.fecha_operativa > hasta) return false;
     if (codTerm) {
       const code = `${r.codigo_original ?? ""} ${(r.veterinaria as any)?.codigo ?? ""}`.toLowerCase();
       if (!code.includes(codTerm)) return false;
     }
     switch (filter) {
-      case "hoy": return r.fecha_operativa === today;
-      case "semana": return r.fecha_operativa >= weekAgo;
       case "pre_pendiente": return (preOf(r) ?? "pendiente") === "pendiente";
       case "observados": return preOf(r) === "observado" || cobOf(r) === "diferencia";
       case "urgentes": return r.urgente;
@@ -84,8 +93,22 @@ export default async function RetirosPage({
     }
   });
 
-  const retirosHoy = (allRetiros ?? []).filter((r) => r.fecha_operativa === today);
-  const muestrasHoy = retirosHoy.reduce((s, r) => s + (r.cantidad_muestras ?? 0), 0);
+  // Tarjetas de resumen: cuentas propias e independientes del filtro de la tabla.
+  let statHoyQuery = supabase
+    .from("retiros")
+    .select("cantidad_muestras")
+    .eq("anulado", false)
+    .eq("fecha_operativa", today);
+  let statTotalQuery = supabase
+    .from("retiros")
+    .select("id", { count: "exact", head: true })
+    .eq("anulado", false);
+  if (personalId) {
+    statHoyQuery = statHoyQuery.eq("personal_id", personalId);
+    statTotalQuery = statTotalQuery.eq("personal_id", personalId);
+  }
+  const [{ data: retirosHoy }, { count: totalCargados }] = await Promise.all([statHoyQuery, statTotalQuery]);
+  const muestrasHoy = (retirosHoy ?? []).reduce((s, r) => s + (r.cantidad_muestras ?? 0), 0);
 
   return (
     <div>
@@ -99,9 +122,8 @@ export default async function RetirosPage({
       />
       <div className="p-6 space-y-4">
         <div className="grid grid-cols-3 gap-3.5">
-          <StatCard label="Retiros hoy" value={retirosHoy.length}
-            badge={<span className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full bg-g50 text-g700 font-medium">▲ 2 vs ayer</span>} />
-          <StatCard label={isPersonal ? "Este mes" : "Total cargados"} value={allRetiros?.length ?? 0} />
+          <StatCard label="Retiros hoy" value={retirosHoy?.length ?? 0} />
+          <StatCard label={isPersonal ? "Mis retiros" : "Total cargados"} value={totalCargados ?? 0} />
           <StatCard label="Muestras hoy" value={muestrasHoy} accent="warn" />
         </div>
 
