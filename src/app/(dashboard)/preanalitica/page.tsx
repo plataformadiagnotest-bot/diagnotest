@@ -12,11 +12,14 @@ export default async function PreanaliticaPage() {
   // Todo lo pendiente/observado, sin filtrar por fecha: lo que quedó sin
   // controlar de días anteriores tiene que seguir viéndose. La bandeja lo
   // agrupa por fecha operativa (como si la fecha fuera un cadete más).
+  // !inner + filtros sobre el retiro: la bandeja no muestra controles de
+  // retiros anulados ni de duplicados sospechosos (esos van a su propia
+  // pantalla de revisión, no al control de preanalítica).
   const { data: controles } = await supabase
     .from("control_preanalitica")
     .select(`
       *,
-      retiro:retiro_id(
+      retiro:retiro_id!inner(
         id, cantidad_muestras, comentarios, urgente, fecha_operativa, timestamp_carga,
         veterinaria_texto_original, codigo_original, comprobante_url, segunda_visita,
         personal:personal_id(nombre),
@@ -24,6 +27,8 @@ export default async function PreanaliticaPage() {
       )
     `)
     .in("estado", ["pendiente", "observado"])
+    .eq("retiro.anulado", false)
+    .neq("retiro.estado", "duplicado_sospechoso")
     .order("created_at", { ascending: true });
 
   // Conteos reales para las tarjetas (head: true → solo trae el count).

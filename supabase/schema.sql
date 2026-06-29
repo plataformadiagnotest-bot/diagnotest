@@ -239,18 +239,27 @@ begin
     return new;
   end if;
 
+  -- El match acota por día (fecha_operativa) y NO usa una ventana contra now()
+  -- (rompía con cargas offline sincronizadas tarde). La veterinaria se compara
+  -- por id del padrón, o por código suelto, o por nombre normalizado (para los
+  -- retiros cargados por nombre sin id resuelto).
   select count(*) into dup_count
-  from retiros
-  where personal_id = new.personal_id
-    and veterinaria_id = new.veterinaria_id
-    and veterinaria_id is not null
-    and fecha_operativa = new.fecha_operativa
-    and cantidad_muestras = new.cantidad_muestras
-    and abs(importe_declarado - new.importe_declarado) < 1
-    and timestamp_carga > (now() - interval '30 minutes')
-    and anulado = false
-    and segunda_visita = false
-    and id != new.id;
+  from retiros r
+  where r.personal_id = new.personal_id
+    and r.fecha_operativa = new.fecha_operativa
+    and r.cantidad_muestras = new.cantidad_muestras
+    and abs(coalesce(r.importe_declarado, 0) - coalesce(new.importe_declarado, 0)) < 1
+    and r.anulado = false
+    and r.segunda_visita = false
+    and r.id != new.id
+    and (
+      (new.veterinaria_id is not null and r.veterinaria_id = new.veterinaria_id)
+      or (new.codigo_original is not null and r.codigo_original is not null
+          and lower(btrim(r.codigo_original)) = lower(btrim(new.codigo_original)))
+      or (coalesce(btrim(new.veterinaria_texto_original), '') <> ''
+          and lower(btrim(coalesce(r.veterinaria_texto_original, '')))
+            = lower(btrim(coalesce(new.veterinaria_texto_original, ''))))
+    );
 
   if dup_count > 0 then
     update retiros set estado = 'duplicado_sospechoso' where id = new.id;
