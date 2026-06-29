@@ -86,7 +86,10 @@ export default async function RetirosPage({
       if (!code.includes(codTerm)) return false;
     }
     switch (filter) {
-      case "pre_pendiente": return (preOf(r) ?? "pendiente") === "pendiente";
+      // Solo cuentan los que tienen un control real pendiente. Un retiro de 0
+      // muestras no genera control de preanalítica (queda solo en logística),
+      // así que no debe figurar como "pre. pendiente".
+      case "pre_pendiente": return preOf(r) === "pendiente";
       case "observados": return preOf(r) === "observado" || cobOf(r) === "diferencia";
       case "urgentes": return r.urgente;
       default: return true;
@@ -209,7 +212,9 @@ export default async function RetirosPage({
                       <td className="px-3.5 py-2.5">${fmtMoney(r.importe_declarado)}</td>
                       <td className="px-3.5 py-2.5 text-gy600">{METODO_PAGO_LABEL[r.metodo_pago as string] ?? "—"}</td>
                       <td className="px-3.5 py-2.5">
-                        <PillStatus variant={preEstado === "ok" ? "ok" : preEstado === "observado" ? "observado" : "pendiente"} />
+                        {/* Sin control de preanalítica (retiro de 0 muestras) → "—",
+                            no "Pendiente": no hay nada que controlar. */}
+                        <PillStatus variant={preEstado === "ok" ? "ok" : preEstado === "observado" ? "observado" : preEstado === "pendiente" ? "pendiente" : "grey"} />
                       </td>
                       <td className="px-3.5 py-2.5">
                         <PillStatus variant={cobEstado === "adjudicado" ? "ok" : cobEstado === "diferencia" ? "diferencia" : "pendiente"} />
