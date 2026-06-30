@@ -217,7 +217,8 @@ export default async function RetirosPage({
                         <PillStatus variant={preEstado === "ok" ? "ok" : preEstado === "observado" ? "observado" : preEstado === "pendiente" ? "pendiente" : "grey"} />
                       </td>
                       <td className="px-3.5 py-2.5">
-                        <PillStatus variant={cobEstado === "adjudicado" ? "ok" : cobEstado === "diferencia" ? "diferencia" : "pendiente"} />
+                        {/* Sin control de cobranzas (retiro de $0) → "—", no "Pendiente". */}
+                        <PillStatus variant={cobEstado === "adjudicado" ? "ok" : cobEstado === "diferencia" ? "diferencia" : cobEstado === "pendiente" ? "pendiente" : "grey"} />
                       </td>
                       <td className="px-3.5 py-2.5">
                         <div className="flex items-center gap-1.5">

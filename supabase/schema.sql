@@ -242,9 +242,12 @@ begin
     on conflict (retiro_id) do nothing;
   end if;
 
-  insert into control_cobranzas (retiro_id, importe_declarado)
-  values (new.id, new.importe_declarado)
-  on conflict (retiro_id) do nothing;
+  -- Cobranzas: solo si hay importe declarado (> $0).
+  if coalesce(new.importe_declarado, 0) > 0 then
+    insert into control_cobranzas (retiro_id, importe_declarado)
+    values (new.id, new.importe_declarado)
+    on conflict (retiro_id) do nothing;
+  end if;
 
   return new;
 end;
