@@ -205,14 +205,27 @@ create table auditoria (
 create index idx_auditoria_entidad on auditoria(entidad, entidad_id);
 create index idx_auditoria_fecha on auditoria(fecha_hora desc);
 
+-- Responsable activo de preanalítica por etapa: los retiros nuevos heredan el
+-- responsable activo de Control 1 al crear su control.
+create table if not exists preanalitica_responsable_activo (
+  stage text primary key check (stage in ('c1', 'c2')),
+  responsable text,
+  updated_at timestamptz not null default now()
+);
+
 -- ── TRIGGERS: auto-create controles al insertar retiro ─────
 create or replace function create_controls_on_retiro()
 returns trigger language plpgsql security definer as $$
+declare
+  resp_c1 text;
 begin
   -- Solo se controla en preanalítica si hay muestras (0 muestras = sin control).
   if coalesce(new.cantidad_muestras, 0) > 0 then
-    insert into control_preanalitica (retiro_id, urgente)
-    values (new.id, new.urgente)
+    select responsable into resp_c1
+      from preanalitica_responsable_activo where stage = 'c1';
+
+    insert into control_preanalitica (retiro_id, urgente, responsable_1)
+    values (new.id, new.urgente, resp_c1)
     on conflict (retiro_id) do nothing;
   end if;
 

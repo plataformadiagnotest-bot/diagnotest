@@ -49,6 +49,14 @@ export default async function PreanaliticaPage() {
   const pendientes = controles?.filter((c) => c.estado === "pendiente").length ?? 0;
   const urgentes = controles?.filter((c) => c.urgente || (c.retiro as { urgente?: boolean } | null)?.urgente).length ?? 0;
 
+  // Responsable activo por etapa (para precargar la barra de "quién controla"
+  // aunque la bandeja esté vacía). Defensivo por si la tabla aún no existe.
+  const { data: respActivo } = await supabase
+    .from("preanalitica_responsable_activo")
+    .select("stage, responsable");
+  const respC1 = respActivo?.find((r) => r.stage === "c1")?.responsable ?? null;
+  const respC2 = respActivo?.find((r) => r.stage === "c2")?.responsable ?? null;
+
   return (
     <div>
       <Topbar title="Bandeja Preanalítica" />
@@ -67,7 +75,7 @@ export default async function PreanaliticaPage() {
           <RecaudadoHoy />
         </div>
 
-        <PreanaliticaBandeja controles={controles ?? []} />
+        <PreanaliticaBandeja controles={controles ?? []} respActivoC1={respC1} respActivoC2={respC2} />
       </div>
     </div>
   );

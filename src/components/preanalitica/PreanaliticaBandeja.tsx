@@ -56,15 +56,24 @@ function responsableActual(pendientes: AnyRecord[], etapa: Etapa): string {
   return "";
 }
 
-export function PreanaliticaBandeja({ controles }: { controles: AnyRecord[] }) {
+export function PreanaliticaBandeja({
+  controles,
+  respActivoC1 = null,
+  respActivoC2 = null,
+}: {
+  controles: AnyRecord[];
+  respActivoC1?: string | null;
+  respActivoC2?: string | null;
+}) {
   const router = useRouter();
   const [etapa, setEtapa] = useState<Etapa>("c1");
   const [filtro, setFiltro] = useState<Filtro>("fecha");
   // Responsable global por etapa (barra de "Quién controla"). Precarga lo que ya
-  // tienen los pendientes; al aplicar se estampa en toda la bandeja de la etapa.
+  // tienen los pendientes y, si no hay, el responsable activo persistido; al
+  // aplicar se estampa en toda la bandeja de la etapa.
   const pendientesIni = controles.filter((c) => c.estado === "pendiente");
-  const [respC1, setRespC1] = useState<string | null>(responsableActual(pendientesIni, "c1") || null);
-  const [respC2, setRespC2] = useState<string | null>(responsableActual(pendientesIni, "c2") || null);
+  const [respC1, setRespC1] = useState<string | null>(responsableActual(pendientesIni, "c1") || respActivoC1 || null);
+  const [respC2, setRespC2] = useState<string | null>(responsableActual(pendientesIni, "c2") || respActivoC2 || null);
   const [aplicando, setAplicando] = useState(false);
   // Texto que se está tipeando (qX) vs. término ya aplicado (aplX). Al apretar
   // Enter el término pasa a "aplicado" y la caja se limpia, lista para el

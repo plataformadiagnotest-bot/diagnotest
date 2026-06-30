@@ -58,6 +58,12 @@ export async function POST(req: Request) {
     .in("id", ids);
   if (updErr) return NextResponse.json({ error: updErr.message }, { status: 400 });
 
+  // Persistir el responsable activo de la etapa: los retiros nuevos lo heredan
+  // (Control 1 vía el trigger create_controls_on_retiro; ver migración 0018).
+  await admin
+    .from("preanalitica_responsable_activo")
+    .upsert({ stage, responsable, updated_at: new Date().toISOString() }, { onConflict: "stage" });
+
   await admin.from("auditoria").insert({
     entidad: "preanalitica",
     entidad_id: null,
