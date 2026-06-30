@@ -1,7 +1,10 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { ControlCard } from "@/components/ui/ControlCard";
+import { ResponsableSelector } from "@/components/preanalitica/ResponsableSelector";
+import { toast } from "@/components/ui/ToastNotification";
 import { todayISO, daysAgoISO } from "@/lib/utils/dates";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -40,9 +43,29 @@ function etiquetaFecha(iso: string): string {
   });
 }
 
+// Responsable "global" actual de una etapa: el que ya tienen los pendientes de
+// esa etapa (tras aplicarlo en masa, todos comparten el mismo). Toma el primero
+// no vacío para precargar la barra.
+function responsableActual(pendientes: AnyRecord[], etapa: Etapa): string {
+  const col = etapa === "c1" ? "responsable_1" : "responsable_2";
+  for (const c of pendientes) {
+    if (etapaDe(c) !== etapa) continue;
+    const v = (c[col] ?? "").toString().trim();
+    if (v) return v;
+  }
+  return "";
+}
+
 export function PreanaliticaBandeja({ controles }: { controles: AnyRecord[] }) {
+  const router = useRouter();
   const [etapa, setEtapa] = useState<Etapa>("c1");
   const [filtro, setFiltro] = useState<Filtro>("fecha");
+  // Responsable global por etapa (barra de "Quién controla"). Precarga lo que ya
+  // tienen los pendientes; al aplicar se estampa en toda la bandeja de la etapa.
+  const pendientesIni = controles.filter((c) => c.estado === "pendiente");
+  const [respC1, setRespC1] = useState<string | null>(responsableActual(pendientesIni, "c1") || null);
+  const [respC2, setRespC2] = useState<string | null>(responsableActual(pendientesIni, "c2") || null);
+  const [aplicando, setAplicando] = useState(false);
   // Texto que se está tipeando (qX) vs. término ya aplicado (aplX). Al apretar
   // Enter el término pasa a "aplicado" y la caja se limpia, lista para el
   // siguiente dato. El filtro corre sobre el término aplicado.
@@ -104,6 +127,25 @@ export function PreanaliticaBandeja({ controles }: { controles: AnyRecord[] }) {
     return entries.sort((a, b) => a[0].localeCompare(b[0], "es"));
   }, [filtrados, filtro]);
 
+  const respActual = etapa === "c1" ? respC1 : respC2;
+  const setRespActual = etapa === "c1" ? setRespC1 : setRespC2;
+  const countActual = etapa === "c1" ? c1Count : c2Count;
+
+  async function aplicarResponsable() {
+    if (!(respActual ?? "").trim()) { toast("error", "Marcá al menos una persona"); return; }
+    setAplicando(true);
+    const res = await fetch("/api/preanalitica/responsable-masivo", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ stage: etapa, responsable: respActual }),
+    });
+    const json = await res.json().catch(() => ({}));
+    setAplicando(false);
+    if (!res.ok) { toast("error", json.error ?? "No se pudo aplicar"); return; }
+    toast("success", `Responsable aplicado a ${json.actualizados ?? 0} registro(s) ✓`);
+    router.refresh();
+  }
+
   return (
     <div className="space-y-4">
       {/* Solapas por etapa: primero Control 1, después Control 2 */}
@@ -119,6 +161,27 @@ export function PreanaliticaBandeja({ controles }: { controles: AnyRecord[] }) {
             <span className={`text-[11px] font-bold rounded-full px-2 py-0.5 ${etapa === t.id ? "bg-white/20 text-white" : "bg-gy100 text-gy600"}`}>{t.count}</span>
           </button>
         ))}
+      </div>
+
+      {/* Responsable global de la etapa: se marca una vez y se aplica a TODA la
+          bandeja de Control 1 (o 2). Si cambian las personas y vuelven a aplicar,
+          se re-estampa lo que sigue pendiente; lo ya controlado no se toca. */}
+      <div className="bg-g50/60 border border-g700/20 rounded-[12px] p-3.5 space-y-2.5">
+        <div className="flex items-center gap-2">
+          <i className="ti ti-users text-g700 text-[15px]" />
+          <span className="text-[13px] font-semibold text-g800">
+            ¿Quién controla en {etapa === "c1" ? "Control 1" : "Control 2"}?
+          </span>
+          <span className="text-[11px] text-gy500">se aplica a los {countActual} registros de la bandeja</span>
+        </div>
+        <ResponsableSelector value={respActual} onChange={setRespActual} />
+        <button type="button" onClick={aplicarResponsable} disabled={aplicando || countActual === 0}
+          className="flex items-center gap-1.5 px-3.5 py-2 bg-g800 text-white text-[12px] font-semibold rounded-[8px] hover:bg-g700 disabled:opacity-50">
+          {aplicando
+            ? <span className="w-3.5 h-3.5 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+            : <i className="ti ti-users-group text-[14px]" />}
+          Aplicar a toda la bandeja ({etapa === "c1" ? "Control 1" : "Control 2"})
+        </button>
       </div>
 
       <div className="flex items-center gap-2 flex-wrap">
