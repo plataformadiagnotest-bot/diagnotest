@@ -4,9 +4,10 @@ import { MuestrasBolsasTabla, type FilaMuestras } from "@/components/caja/Muestr
 
 // Sumatoria de muestras por cadete en el día (automática) + carga manual de las
 // bolsas recibidas (V1/V2) que preanalítica controla al recibir al cadete.
-export async function MuestrasPorCadete({ fecha }: { fecha?: string }) {
+export async function MuestrasPorCadete({ fecha, filtroNombre, etiqueta }: { fecha?: string; filtroNombre?: string; etiqueta?: string }) {
   const supabase = await createClient();
   const dia = fecha || todayISO();
+  const q = (filtroNombre ?? "").trim().toLowerCase();
 
   const [{ data: retiros }, { data: bolsas }] = await Promise.all([
     supabase
@@ -34,6 +35,7 @@ export async function MuestrasPorCadete({ fecha }: { fecha?: string }) {
 
   const filas: FilaMuestras[] = Array.from(map.values())
     .filter((f) => f.total > 0)
+    .filter((f) => !q || f.nombre.toLowerCase().includes(q))
     .sort((a, b) => b.total - a.total)
     .map((f) => ({
       personalId: f.personalId,
@@ -44,5 +46,5 @@ export async function MuestrasPorCadete({ fecha }: { fecha?: string }) {
     }));
   const granTotal = filas.reduce((s, f) => s + f.total, 0);
 
-  return <MuestrasBolsasTabla filas={filas} granTotal={granTotal} dia={dia} />;
+  return <MuestrasBolsasTabla filas={filas} granTotal={granTotal} dia={dia} etiqueta={etiqueta} />;
 }

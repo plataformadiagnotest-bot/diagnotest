@@ -39,6 +39,7 @@ function getNavItems(rol: string): NavItem[] {
         { href: "/preanalitica", label: "Bandeja", icon: "ti-inbox" },
         { href: "/preanalitica/controlados", label: "Controlados", icon: "ti-check" },
         { href: "/preanalitica/observados", label: "Observados", icon: "ti-alert-circle" },
+        { href: "/resumen", label: "Resumen", icon: "ti-report-analytics" },
         { href: "/retiros/duplicados", label: "Duplicados", icon: "ti-copy", badgeClass: "amber" },
       ];
     case "cobranzas":
@@ -64,6 +65,7 @@ function getNavItems(rol: string): NavItem[] {
       return [
         { href: "/dashboard", label: "Dashboard", icon: "ti-chart-bar" },
         { href: "/caja", label: "Control de caja", icon: "ti-cash-register" },
+        { href: "/resumen", label: "Resumen", icon: "ti-report-analytics" },
         { href: "/pedidos", label: "Pedidos de retiro", icon: "ti-map-pin", badgeClass: "blue" },
         { href: "/retiros", label: "Todos los retiros", icon: "ti-table" },
         { href: "/admin/personal", label: "Personal", icon: "ti-users" },

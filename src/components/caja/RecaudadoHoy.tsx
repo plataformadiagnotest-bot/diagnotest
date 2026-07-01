@@ -4,9 +4,10 @@ import { todayISO } from "@/lib/utils/dates";
 
 // Resumen del total recaudado por cada cadete en el día — solo el total,
 // para poder pasarle al chico de logística cuánto debe rendir.
-export async function RecaudadoHoy({ fecha }: { fecha?: string }) {
+export async function RecaudadoHoy({ fecha, filtroNombre, etiqueta = "hoy" }: { fecha?: string; filtroNombre?: string; etiqueta?: string }) {
   const supabase = await createClient();
   const dia = fecha || todayISO();
+  const q = (filtroNombre ?? "").trim().toLowerCase();
 
   const { data: retiros } = await supabase
     .from("retiros")
@@ -24,6 +25,7 @@ export async function RecaudadoHoy({ fecha }: { fecha?: string }) {
   }
   const filas = Array.from(map.values())
     .filter((f) => f.total > 0)
+    .filter((f) => !q || f.nombre.toLowerCase().includes(q))
     .sort((a, b) => b.total - a.total);
   const granTotal = filas.reduce((s, f) => s + f.total, 0);
 
@@ -31,7 +33,7 @@ export async function RecaudadoHoy({ fecha }: { fecha?: string }) {
     <div className="bg-white rounded-[14px] border border-gy200 shadow-sm overflow-hidden">
       <div className="px-4 py-3.5 border-b border-gy100 flex items-center gap-2">
         <i className="ti ti-cash text-g600" />
-        <span className="text-[14px] font-semibold flex-1">Recaudado por cadete — hoy</span>
+        <span className="text-[14px] font-semibold flex-1">Recaudado por cadete — {etiqueta}</span>
         <span className="text-[11px] text-gy400">Total general:</span>
         <span className="text-[14px] font-bold text-g700">{fmtMoneySign(granTotal)}</span>
       </div>

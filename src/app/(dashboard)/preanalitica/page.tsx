@@ -3,8 +3,6 @@ import { Topbar } from "@/components/layout/Topbar";
 import { StatCard } from "@/components/ui/StatCard";
 import { PreanaliticaBandeja } from "@/components/preanalitica/PreanaliticaBandeja";
 import { ResumenPendientesEtapa } from "@/components/preanalitica/ResumenPendientesEtapa";
-import { RecaudadoHoy } from "@/components/caja/RecaudadoHoy";
-import { MuestrasPorCadete } from "@/components/caja/MuestrasPorCadete";
 import { todayISO, baDayStartUTC } from "@/lib/utils/dates";
 
 export default async function PreanaliticaPage() {
@@ -69,11 +67,6 @@ export default async function PreanaliticaPage() {
         </div>
 
         <ResumenPendientesEtapa />
-
-        <div className="grid grid-cols-2 gap-3.5">
-          <MuestrasPorCadete />
-          <RecaudadoHoy />
-        </div>
 
         <PreanaliticaBandeja controles={controles ?? []} respActivoC1={respC1} respActivoC2={respC2} />
       </div>

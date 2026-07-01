@@ -64,16 +64,18 @@ export function MuestrasBolsasTabla({
   filas,
   granTotal,
   dia,
+  etiqueta = "hoy",
 }: {
   filas: FilaMuestras[];
   granTotal: number;
   dia: string;
+  etiqueta?: string;
 }) {
   return (
     <div className="bg-white rounded-[14px] border border-gy200 shadow-sm overflow-hidden">
       <div className="px-4 py-3.5 border-b border-gy100 flex items-center gap-2">
         <i className="ti ti-test-pipe text-g600" />
-        <span className="text-[14px] font-semibold flex-1">Muestras por cadete — hoy</span>
+        <span className="text-[14px] font-semibold flex-1">Muestras por cadete — {etiqueta}</span>
         <span className="text-[11px] text-gy400">Total general:</span>
         <span className="text-[14px] font-bold text-g700">{granTotal}</span>
       </div>
