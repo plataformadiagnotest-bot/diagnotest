@@ -79,25 +79,26 @@ export function MuestrasBolsasTabla({
         <span className="text-[11px] text-gy400">Total general:</span>
         <span className="text-[14px] font-bold text-g700">{granTotal}</span>
       </div>
-      {filas.length === 0 ? (
-        <div className="px-4 py-8 text-center text-[12px] text-gy400">Sin muestras registradas hoy</div>
-      ) : (
-        <table className="w-full border-collapse">
-          <thead>
-            <tr className="bg-gy50">
-              <th className="px-4 py-2 text-left text-[10px] font-bold uppercase tracking-wide text-gy400 border-b border-gy200">Cadete</th>
-              <th className="px-4 py-2 text-center text-[10px] font-bold uppercase tracking-wide text-gy400 border-b border-gy200">Muestras</th>
-              <th className="px-2 py-2 text-center text-[10px] font-bold uppercase tracking-wide text-gy400 border-b border-gy200">Bolsas V1</th>
-              <th className="px-2 py-2 text-center text-[10px] font-bold uppercase tracking-wide text-gy400 border-b border-gy200">Bolsas V2</th>
+      {/* Los encabezados se muestran siempre, aunque no haya datos del día. */}
+      <table className="w-full border-collapse">
+        <thead>
+          <tr className="bg-gy50">
+            <th className="px-4 py-2 text-left text-[10px] font-bold uppercase tracking-wide text-gy400 border-b border-gy200">Cadete</th>
+            <th className="px-4 py-2 text-center text-[10px] font-bold uppercase tracking-wide text-gy400 border-b border-gy200">Muestras</th>
+            <th className="px-2 py-2 text-center text-[10px] font-bold uppercase tracking-wide text-gy400 border-b border-gy200">Bolsas V1</th>
+            <th className="px-2 py-2 text-center text-[10px] font-bold uppercase tracking-wide text-gy400 border-b border-gy200">Bolsas V2</th>
+          </tr>
+        </thead>
+        <tbody>
+          {filas.length === 0 ? (
+            <tr>
+              <td colSpan={4} className="px-4 py-8 text-center text-[12px] text-gy400">Sin muestras registradas — {etiqueta}</td>
             </tr>
-          </thead>
-          <tbody>
-            {filas.map((f) => (
-              <Fila key={f.personalId} fila={f} dia={dia} />
-            ))}
-          </tbody>
-        </table>
-      )}
+          ) : (
+            filas.map((f) => <Fila key={f.personalId} fila={f} dia={dia} />)
+          )}
+        </tbody>
+      </table>
     </div>
   );
 }
