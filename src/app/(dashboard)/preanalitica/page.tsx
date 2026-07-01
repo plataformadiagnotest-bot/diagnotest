@@ -1,13 +1,10 @@
 import { createClient } from "@/lib/supabase/server";
 import { Topbar } from "@/components/layout/Topbar";
-import { StatCard } from "@/components/ui/StatCard";
 import { PreanaliticaBandeja } from "@/components/preanalitica/PreanaliticaBandeja";
-import { ResumenPendientesEtapa } from "@/components/preanalitica/ResumenPendientesEtapa";
-import { todayISO, baDayStartUTC } from "@/lib/utils/dates";
+import { MuestrasPorCadete } from "@/components/caja/MuestrasPorCadete";
 
 export default async function PreanaliticaPage() {
   const supabase = await createClient();
-  const today = todayISO();
 
   // Todo lo pendiente/observado, sin filtrar por fecha: lo que quedó sin
   // controlar de días anteriores tiene que seguir viéndose. La bandeja lo
@@ -31,22 +28,6 @@ export default async function PreanaliticaPage() {
     .neq("retiro.estado", "duplicado_sospechoso")
     .order("created_at", { ascending: true });
 
-  // Conteos reales para las tarjetas (head: true → solo trae el count).
-  const [{ count: controladosHoy }, { count: observados }] = await Promise.all([
-    supabase
-      .from("control_preanalitica")
-      .select("id", { count: "exact", head: true })
-      .eq("estado", "ok")
-      .gte("updated_at", baDayStartUTC(today)),
-    supabase
-      .from("control_preanalitica")
-      .select("id", { count: "exact", head: true })
-      .in("estado", ["observado", "rechazado"]),
-  ]);
-
-  const pendientes = controles?.filter((c) => c.estado === "pendiente").length ?? 0;
-  const urgentes = controles?.filter((c) => c.urgente || (c.retiro as { urgente?: boolean } | null)?.urgente).length ?? 0;
-
   // Responsable activo por etapa (para precargar la barra de "quién controla"
   // aunque la bandeja esté vacía). Defensivo por si la tabla aún no existe.
   const { data: respActivo } = await supabase
@@ -59,14 +40,9 @@ export default async function PreanaliticaPage() {
     <div>
       <Topbar title="Bandeja Preanalítica" />
       <div className="p-6 space-y-4">
-        <div className="grid grid-cols-4 gap-3.5">
-          <StatCard label="Pendientes de control" value={pendientes} accent="warn" />
-          <StatCard label="Urgentes" value={urgentes} accent="danger" />
-          <StatCard label="Controlados hoy" value={controladosHoy ?? 0} />
-          <StatCard label="Observados" value={observados ?? 0} accent="warn" />
-        </div>
-
-        <ResumenPendientesEtapa />
+        {/* Muestras + Bolsas por cadete: preanalítica controla acá las bolsas que
+            recibe de cada cadete al llegar (V1/V2 editables). */}
+        <MuestrasPorCadete />
 
         <PreanaliticaBandeja controles={controles ?? []} respActivoC1={respC1} respActivoC2={respC2} />
       </div>
