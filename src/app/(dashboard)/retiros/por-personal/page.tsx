@@ -24,7 +24,7 @@ export default async function PorPersonalPage({
 
   const { data: retiros } = await supabase
     .from("retiros")
-    .select("*, control_preanalitica:control_preanalitica(estado), control_cobranzas:control_cobranzas(estado)")
+    .select("*, veterinaria:veterinaria_id(codigo), control_preanalitica:control_preanalitica(estado), control_cobranzas:control_cobranzas(estado)")
     .eq("personal_id", selectedId)
     .eq("fecha_operativa", fecha)
     .eq("anulado", false)
@@ -71,7 +71,7 @@ export default async function PorPersonalPage({
               <table className="w-full border-collapse text-[12px]">
                 <thead>
                   <tr className="bg-gy50">
-                    {["ID", "Hora", "Veterinaria", "Muestras", "Importe", "Pre.", "Cob."].map((h) => (
+                    {["Código", "Hora", "Veterinaria", "Muestras", "Importe", "Pre.", "Cob."].map((h) => (
                       <th key={h} className="px-3.5 py-2.5 text-left text-[10px] font-bold uppercase tracking-wide text-gy400 border-b border-gy200">{h}</th>
                     ))}
                   </tr>
@@ -82,7 +82,7 @@ export default async function PorPersonalPage({
                     const cobEst = (r.control_cobranzas as any)?.[0]?.estado ?? "pendiente";
                     return (
                       <tr key={r.id} className="hover:bg-gy50 border-b border-gy100 last:border-0">
-                        <td className="px-3.5 py-2.5 font-mono text-[11px] text-gy400">{r.id.slice(0, 8).toUpperCase()}</td>
+                        <td className="px-3.5 py-2.5 font-mono text-[11px] text-g700">{r.codigo_original ?? (r.veterinaria as any)?.codigo ?? "—"}</td>
                         <td className="px-3.5 py-2.5">{formatTime(r.timestamp_carga)}</td>
                         <td className="px-3.5 py-2.5">{r.veterinaria_texto_original}</td>
                         <td className="px-3.5 py-2.5 text-center font-semibold">{r.cantidad_muestras}</td>
