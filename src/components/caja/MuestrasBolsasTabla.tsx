@@ -7,6 +7,7 @@ export type FilaMuestras = {
   personalId: string;
   nombre: string;
   total: number;
+  veterinarias: number;
   v1: number | null;
   v2: number | null;
 };
@@ -48,6 +49,7 @@ function Fila({ fila, dia }: { fila: FilaMuestras; dia: string }) {
         {ok && <i className="ti ti-check ml-1.5 text-g600 text-[12px] align-middle" />}
       </td>
       <td className="px-4 py-2 text-center text-[14px] font-bold text-g700">{fila.total}</td>
+      <td className="px-4 py-2 text-center text-[14px] font-semibold text-gy700">{fila.veterinarias}</td>
       <td className="px-2 py-2 text-center">
         <input type="number" min={0} inputMode="numeric" value={v1} placeholder="—"
           onChange={(e) => setV1(e.target.value)} onBlur={guardar} className={inputCls} />
@@ -85,6 +87,7 @@ export function MuestrasBolsasTabla({
           <tr className="bg-gy50">
             <th className="px-4 py-2 text-left text-[10px] font-bold uppercase tracking-wide text-gy400 border-b border-gy200">Cadete</th>
             <th className="px-4 py-2 text-center text-[10px] font-bold uppercase tracking-wide text-gy400 border-b border-gy200">Muestras</th>
+            <th className="px-4 py-2 text-center text-[10px] font-bold uppercase tracking-wide text-gy400 border-b border-gy200">Veterinarias</th>
             <th className="px-2 py-2 text-center text-[10px] font-bold uppercase tracking-wide text-gy400 border-b border-gy200">Bolsas V1</th>
             <th className="px-2 py-2 text-center text-[10px] font-bold uppercase tracking-wide text-gy400 border-b border-gy200">Bolsas V2</th>
           </tr>
@@ -92,7 +95,7 @@ export function MuestrasBolsasTabla({
         <tbody>
           {filas.length === 0 ? (
             <tr>
-              <td colSpan={4} className="px-4 py-8 text-center text-[12px] text-gy400">Sin muestras registradas — {etiqueta}</td>
+              <td colSpan={5} className="px-4 py-8 text-center text-[12px] text-gy400">Sin muestras registradas — {etiqueta}</td>
             </tr>
           ) : (
             filas.map((f) => <Fila key={f.personalId} fila={f} dia={dia} />)

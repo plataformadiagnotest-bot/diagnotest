@@ -12,7 +12,7 @@ export async function MuestrasPorCadete({ fecha, filtroNombre, etiqueta }: { fec
   const [{ data: retiros }, { data: bolsas }] = await Promise.all([
     supabase
       .from("retiros")
-      .select("personal_id, cantidad_muestras, personal:personal_id(nombre)")
+      .select("personal_id, cantidad_muestras, veterinaria_id, codigo_original, veterinaria_texto_original, personal:personal_id(nombre)")
       .eq("fecha_operativa", dia)
       .eq("anulado", false)
       .neq("estado", "duplicado_sospechoso" as never),
@@ -25,11 +25,17 @@ export async function MuestrasPorCadete({ fecha, filtroNombre, etiqueta }: { fec
   const bolsasPorCadete = new Map<string, { v1: number | null; v2: number | null }>();
   for (const b of bolsas ?? []) bolsasPorCadete.set(b.personal_id, { v1: b.bolsas_v1, v2: b.bolsas_v2 });
 
-  const map = new Map<string, { personalId: string; nombre: string; total: number }>();
+  const map = new Map<string, { personalId: string; nombre: string; total: number; vets: Set<string> }>();
   for (const r of retiros ?? []) {
     const nombre = (r.personal as { nombre?: string } | null)?.nombre ?? "Sin nombre";
-    const prev = map.get(r.personal_id) ?? { personalId: r.personal_id, nombre, total: 0 };
+    const prev = map.get(r.personal_id) ?? { personalId: r.personal_id, nombre, total: 0, vets: new Set<string>() };
     prev.total += Number(r.cantidad_muestras ?? 0);
+    // Veterinarias únicas: por id del padrón; si el retiro se cargó por nombre
+    // (sin id), se usa el código o el nombre como clave para no perder la cuenta.
+    const vetKey = r.veterinaria_id
+      ?? (r.codigo_original ? `cod:${String(r.codigo_original).trim().toLowerCase()}` : null)
+      ?? (r.veterinaria_texto_original ? `nom:${String(r.veterinaria_texto_original).trim().toLowerCase()}` : null);
+    if (vetKey) prev.vets.add(vetKey);
     map.set(r.personal_id, prev);
   }
 
@@ -41,6 +47,7 @@ export async function MuestrasPorCadete({ fecha, filtroNombre, etiqueta }: { fec
       personalId: f.personalId,
       nombre: f.nombre,
       total: f.total,
+      veterinarias: f.vets.size,
       v1: bolsasPorCadete.get(f.personalId)?.v1 ?? null,
       v2: bolsasPorCadete.get(f.personalId)?.v2 ?? null,
     }));
