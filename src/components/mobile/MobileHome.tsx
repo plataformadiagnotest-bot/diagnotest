@@ -118,6 +118,8 @@ export function MobileHome({ nombre, zonaNombre, personalId, profileId, veterina
   const [comentarios, setComentarios] = useState("");
   const [urgente, setUrgente] = useState(false);
   const [pedidoId, setPedidoId] = useState<string | null>(null);
+  // Si está seteado, el formulario edita un retiro existente (en vez de crear).
+  const [editId, setEditId] = useState<string | null>(null);
   const [savingRetiro, setSavingRetiro] = useState(false);
   const [fotoRetiro, setFotoRetiro] = useState<File | null>(null);
   const fotoRetiroInput = useRef<HTMLInputElement>(null);
@@ -176,8 +178,29 @@ export function MobileHome({ nombre, zonaNombre, personalId, profileId, veterina
   function resetRetiro() {
     setVetTexto(""); setVetId(null); setCodigo("");
     setMuestras(""); setImporte("0"); setMetodoPago(""); setComentarios("");
-    setUrgente(false); setPedidoId(null); setFotoRetiro(null);
+    setUrgente(false); setPedidoId(null); setEditId(null); setFotoRetiro(null);
     if (fotoRetiroInput.current) fotoRetiroInput.current.value = "";
+  }
+
+  // Carga un retiro pendiente en el formulario para editarlo. Solo online y solo
+  // mientras siga editable (pendiente en preanalítica y cobranzas).
+  function editarRetiro(r: RetiroResumen) {
+    if (isOffline) { toast("error", "Necesitás conexión para editar un retiro"); return; }
+    if (r.editable === false) { toast("error", "Este retiro ya está en control y no se puede editar"); return; }
+    setEditId(r.id);
+    setPedidoId(null);
+    setVetTexto(r.veterinaria);
+    setVetId(r.veterinariaId ?? null);
+    setCodigo(r.codigo);
+    setMuestras(String(r.muestras));
+    setImporte(String(r.importe));
+    setMetodoPago((r.metodoPago as MetodoPago) || "");
+    setComentarios(r.comentarios ?? "");
+    setUrgente(!!r.urgente);
+    setFotoRetiro(null);
+    if (fotoRetiroInput.current) fotoRetiroInput.current.value = "";
+    setTab("retiro");
+    window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
   // ¿Ya hay un retiro de esta veterinaria cargado hoy por este cadete? Matchea
@@ -213,6 +236,10 @@ export function MobileHome({ nombre, zonaNombre, personalId, profileId, veterina
     const hayPago = parseFloat(importe) > 0;
     if (hayPago && !metodoPago) { toast("error", "Seleccioná el tipo de pago"); return; }
 
+    // En edición no se corre el chequeo de duplicado (es el mismo retiro) ni el
+    // aviso de 0 muestras: el cadete está corrigiendo un registro que ya existe.
+    if (editId) { await persistRetiro(false); return; }
+
     // Avisos que requieren confirmación: 0 muestras (visita sin levantar nada) y
     // duplicado del día. Si hay alguno, abrimos el modal y esperamos el OK.
     const cantidad = parseInt(muestras) || 0;
@@ -237,6 +264,42 @@ export function MobileHome({ nombre, zonaNombre, personalId, profileId, veterina
   async function persistRetiro(confirmadoDup: boolean) {
     if (!personalId) return;
     const hayPago = parseFloat(importe) > 0;
+
+    // ── Edición de un retiro existente (solo online, solo mientras pendiente) ──
+    if (editId) {
+      if (isOffline) { toast("error", "Necesitás conexión para editar"); return; }
+      setSavingRetiro(true);
+      let nuevaFoto: string | null = null;
+      if (fotoRetiro) {
+        nuevaFoto = await uploadComprobante(fotoRetiro);
+        if (!nuevaFoto) { setSavingRetiro(false); return; }
+      }
+      const res = await fetch("/api/retiros/editar", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: editId,
+          veterinaria_id: vetId,
+          veterinaria_texto_original: vetSel?.nombre ?? vetTexto,
+          codigo_original: codigo || null,
+          cantidad_muestras: parseInt(muestras) || 0,
+          importe_declarado: parseFloat(importe) || 0,
+          metodo_pago: hayPago ? (metodoPago as MetodoPago) : null,
+          comentarios: comentarios.trim() || null,
+          urgente,
+          comprobante_url: nuevaFoto,
+        }),
+      });
+      const json = await res.json().catch(() => ({}));
+      setSavingRetiro(false);
+      if (!res.ok) { toast("error", json.error ?? "No se pudo actualizar"); return; }
+      toast("success", "Retiro actualizado ✓");
+      resetRetiro();
+      setTab("resumen");
+      router.refresh();
+      return;
+    }
+
     setSavingRetiro(true);
 
     let comprobanteUrl: string | null = null;
@@ -458,7 +521,11 @@ export function MobileHome({ nombre, zonaNombre, personalId, profileId, veterina
                   <div className="py-8 text-center text-[12px] text-gy400">Todavía no cargaste retiros hoy</div>
                 ) : (
                   <div className="divide-y divide-gy100">
-                    {resumenRetiros.map((r) => (
+                    {resumenRetiros.map((r) => {
+                      // Solo los retiros del servidor traen `editable`; los
+                      // offline (sin sincronizar) no se editan hasta subir.
+                      const puedeEditar = r.editable === true && !isOffline;
+                      return (
                       <div key={r.id} className="flex items-center gap-3 px-3.5 py-2.5">
                         <div className="min-w-0 flex-1">
                           <div className="font-mono text-[15px] font-bold text-gy900 leading-tight">{r.codigo || "S/C"}</div>
@@ -468,8 +535,19 @@ export function MobileHome({ nombre, zonaNombre, personalId, profileId, veterina
                           <div className="text-[13px] font-semibold text-g700">{fmtMoneySign(r.importe)}</div>
                           <div className="text-[10px] text-gy400">{r.muestras} muestra{r.muestras !== 1 ? "s" : ""}</div>
                         </div>
+                        {puedeEditar ? (
+                          <button onClick={() => editarRetiro(r)} title="Editar retiro"
+                            className="shrink-0 w-9 h-9 flex items-center justify-center rounded-[8px] border border-g300 text-g700 hover:bg-g50">
+                            <i className="ti ti-pencil text-[16px]" />
+                          </button>
+                        ) : (
+                          <span title="Ya está en control — no se puede editar"
+                            className="shrink-0 w-9 h-9 flex items-center justify-center rounded-[8px] text-gy300">
+                            <i className="ti ti-lock text-[15px]" />
+                          </span>
+                        )}
                       </div>
-                    ))}
+                    );})}
                   </div>
                 )}
               </div>
@@ -485,6 +563,13 @@ export function MobileHome({ nombre, zonaNombre, personalId, profileId, veterina
         {/* TAB: Nuevo retiro */}
         {tab === "retiro" && (
           <div className="space-y-3">
+            {editId && (
+              <div className="flex items-center gap-2 bg-amber-bg border border-amber/40 rounded-[10px] px-3 py-2 text-[11px] text-amber-text">
+                <i className="ti ti-pencil text-[14px]" />
+                Editando un retiro ya cargado
+                <button onClick={() => { resetRetiro(); setTab("resumen"); }} className="ml-auto text-amber-text/70 hover:text-amber-text"><i className="ti ti-x" /></button>
+              </div>
+            )}
             {pedidoId && (
               <div className="flex items-center gap-2 bg-blue-50 border border-blue-200 rounded-[10px] px-3 py-2 text-[11px] text-blue-700">
                 <i className="ti ti-link text-[14px]" />
@@ -584,9 +669,11 @@ export function MobileHome({ nombre, zonaNombre, personalId, profileId, veterina
             <button onClick={guardarRetiro} disabled={savingRetiro}
               className="w-full py-3.5 bg-g800 hover:bg-g700 text-white font-bold rounded-[12px] text-[15px] flex items-center justify-center gap-2 disabled:opacity-60 transition-colors">
               {savingRetiro ? <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <i className="ti ti-device-floppy text-[18px]" />}
-              GUARDAR RETIRO
+              {editId ? "GUARDAR CAMBIOS" : "GUARDAR RETIRO"}
             </button>
-            <div className="text-center text-[11px] text-gy400">Se guarda localmente si no hay conexión</div>
+            <div className="text-center text-[11px] text-gy400">
+              {editId ? "Estás editando un retiro pendiente" : "Se guarda localmente si no hay conexión"}
+            </div>
           </div>
         )}
 

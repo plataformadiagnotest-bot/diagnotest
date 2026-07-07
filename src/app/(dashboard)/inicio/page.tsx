@@ -77,20 +77,37 @@ export default async function InicioPage() {
   if (personalId) {
     const { data } = await supabase
       .from("retiros")
-      .select("id, veterinaria_texto_original, codigo_original, importe_declarado, cantidad_muestras, timestamp_carga")
+      .select(`
+        id, veterinaria_id, veterinaria_texto_original, codigo_original, importe_declarado,
+        cantidad_muestras, metodo_pago, comentarios, urgente, timestamp_carga,
+        control_preanalitica:control_preanalitica(estado),
+        control_cobranzas:control_cobranzas(estado)
+      `)
       .eq("personal_id", personalId)
       .eq("fecha_operativa", todayISO())
       .eq("anulado", false)
       .neq("estado", "duplicado_sospechoso" as never)
       .order("timestamp_carga", { ascending: false });
 
-    retirosHoy = (data ?? []).map((r) => ({
-      id: r.id,
-      veterinaria: r.veterinaria_texto_original ?? "Veterinaria",
-      codigo: r.codigo_original ?? "",
-      importe: Number(r.importe_declarado ?? 0),
-      muestras: Number(r.cantidad_muestras ?? 0),
-    }));
+    retirosHoy = (data ?? []).map((r) => {
+      const pre = (Array.isArray(r.control_preanalitica) ? r.control_preanalitica[0] : r.control_preanalitica) as { estado?: string } | null;
+      const cob = (Array.isArray(r.control_cobranzas) ? r.control_cobranzas[0] : r.control_cobranzas) as { estado?: string } | null;
+      // Editable por el cadete solo mientras nadie lo procesó: pendiente (o sin
+      // control) en preanalítica Y en cobranzas.
+      const editable = (!pre || pre.estado === "pendiente") && (!cob || cob.estado === "pendiente");
+      return {
+        id: r.id,
+        veterinaria: r.veterinaria_texto_original ?? "Veterinaria",
+        codigo: r.codigo_original ?? "",
+        importe: Number(r.importe_declarado ?? 0),
+        muestras: Number(r.cantidad_muestras ?? 0),
+        veterinariaId: r.veterinaria_id ?? null,
+        metodoPago: r.metodo_pago ?? null,
+        comentarios: r.comentarios ?? null,
+        urgente: !!r.urgente,
+        editable,
+      };
+    });
   }
 
   return (
@@ -112,6 +129,12 @@ export interface RetiroResumen {
   codigo: string;
   importe: number;
   muestras: number;
+  // Presentes solo para los retiros del servidor (no para los offline sin sync).
+  veterinariaId?: string | null;
+  metodoPago?: string | null;
+  comentarios?: string | null;
+  urgente?: boolean;
+  editable?: boolean;
 }
 
 export interface PedidoMobile {
