@@ -75,13 +75,12 @@ export function PreanaliticaBandeja({
   const [respC1, setRespC1] = useState<string | null>(responsableActual(pendientesIni, "c1") || respActivoC1 || null);
   const [respC2, setRespC2] = useState<string | null>(responsableActual(pendientesIni, "c2") || respActivoC2 || null);
   const [aplicando, setAplicando] = useState(false);
-  // Texto que se está tipeando (qX) vs. término ya aplicado (aplX). Al apretar
-  // Enter el término pasa a "aplicado" y la caja se limpia, lista para el
-  // siguiente dato. El filtro corre sobre el término aplicado.
+  // Dos buscadores que filtran en vivo y se COMBINAN (acumulativos): mientras
+  // haya algo escrito en "cadete", el filtro de veterinaria/código solo busca
+  // dentro de ese cadete. El texto queda siempre visible (no se limpia solo),
+  // así nunca se "pierde" un filtro al aplicar el otro.
   const [qCadete, setQCadete] = useState("");
-  const [aplCadete, setAplCadete] = useState("");
   const [qVete, setQVete] = useState("");
-  const [aplVete, setAplVete] = useState("");
 
   // En la bandeja solo se trabajan los pendientes; los observados tienen su
   // propia pantalla. Se reparten en dos solapas según la etapa del control.
@@ -89,11 +88,9 @@ export function PreanaliticaBandeja({
   const c1Count = useMemo(() => pendientes.filter((c) => etapaDe(c) === "c1").length, [pendientes]);
   const c2Count = useMemo(() => pendientes.filter((c) => etapaDe(c) === "c2").length, [pendientes]);
 
-  // Dos buscadores independientes: uno por cadete y otro por veterinaria, código
-  // o etiqueta. Se pueden combinar (ej.: cadete "Emily" + etiqueta "Sin hielo").
   const filtrados = useMemo(() => {
-    const qc = aplCadete.trim().toLowerCase();
-    const qv = aplVete.trim().toLowerCase();
+    const qc = qCadete.trim().toLowerCase();
+    const qv = qVete.trim().toLowerCase();
     const base = pendientes.filter((c) => etapaDe(c) === etapa);
     if (!qc && !qv) return base;
     return base.filter((c) => {
@@ -104,7 +101,7 @@ export function PreanaliticaBandeja({
         .some((v) => String(v ?? "").toLowerCase().includes(qv));
       return okCadete && okVete;
     });
-  }, [pendientes, aplCadete, aplVete, etapa]);
+  }, [pendientes, qCadete, qVete, etapa]);
 
   // Lista plana ordenada (para "Todos" y "Urgentes primero").
   const planos = useMemo(() => {
@@ -200,10 +197,15 @@ export function PreanaliticaBandeja({
             type="text"
             value={qCadete}
             onChange={(e) => setQCadete(e.target.value)}
-            onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); setAplCadete(qCadete); setQCadete(""); } }}
-            placeholder="Buscar por cadete…"
-            className="w-full pl-8 pr-3 py-1.5 border-2 border-gy200 rounded-[8px] text-[12px] bg-gy50 focus:outline-none focus:border-g500 focus:bg-white"
+            placeholder="Filtrar por cadete…"
+            className="w-full pl-8 pr-8 py-1.5 border-2 border-gy200 rounded-[8px] text-[12px] bg-gy50 focus:outline-none focus:border-g500 focus:bg-white"
           />
+          {qCadete && (
+            <button type="button" onClick={() => setQCadete("")} title="Limpiar"
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-gy400 hover:text-gy700">
+              <i className="ti ti-x text-[13px]" />
+            </button>
+          )}
         </div>
         <div className="relative flex-1 min-w-[170px] max-w-[260px]">
           <i className="ti ti-building-store absolute left-3 top-1/2 -translate-y-1/2 text-gy400 text-[14px]" />
@@ -211,10 +213,15 @@ export function PreanaliticaBandeja({
             type="text"
             value={qVete}
             onChange={(e) => setQVete(e.target.value)}
-            onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); setAplVete(qVete); setQVete(""); } }}
             placeholder="Veterinaria, código o etiqueta…"
-            className="w-full pl-8 pr-3 py-1.5 border-2 border-gy200 rounded-[8px] text-[12px] bg-gy50 focus:outline-none focus:border-g500 focus:bg-white"
+            className="w-full pl-8 pr-8 py-1.5 border-2 border-gy200 rounded-[8px] text-[12px] bg-gy50 focus:outline-none focus:border-g500 focus:bg-white"
           />
+          {qVete && (
+            <button type="button" onClick={() => setQVete("")} title="Limpiar"
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-gy400 hover:text-gy700">
+              <i className="ti ti-x text-[13px]" />
+            </button>
+          )}
         </div>
         <div className="flex gap-1.5 flex-wrap">
           {FILTROS.map((f) => (
@@ -226,31 +233,30 @@ export function PreanaliticaBandeja({
         </div>
       </div>
 
-      {/* Chips de los términos aplicados: muestran qué se está filtrando y
-          permiten quitarlo. La caja queda limpia para el próximo dato. */}
-      {(aplCadete.trim() || aplVete.trim()) && (
-        <div className="flex items-center gap-1.5 flex-wrap">
-          <span className="text-[11px] text-gy400">Filtrando:</span>
-          {aplCadete.trim() && (
-            <button onClick={() => setAplCadete("")}
-              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] bg-g50 text-g700 border border-g700/30 hover:bg-g100">
-              <i className="ti ti-user text-[11px]" />{aplCadete}
-              <i className="ti ti-x text-[11px]" />
-            </button>
+      {/* Indicador de filtros combinados (acumulativos): muestra ambos a la vez
+          y permite limpiarlos juntos. */}
+      {(qCadete.trim() || qVete.trim()) && (
+        <div className="flex items-center gap-1.5 flex-wrap text-[11px]">
+          <span className="text-gy400">Filtrando</span>
+          {qCadete.trim() && (
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-g50 text-g700 border border-g700/30">
+              <i className="ti ti-user text-[11px]" />{qCadete.trim()}
+            </span>
           )}
-          {aplVete.trim() && (
-            <button onClick={() => setAplVete("")}
-              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] bg-g50 text-g700 border border-g700/30 hover:bg-g100">
-              <i className="ti ti-building-store text-[11px]" />{aplVete}
-              <i className="ti ti-x text-[11px]" />
-            </button>
+          {qCadete.trim() && qVete.trim() && <span className="text-gy400">+</span>}
+          {qVete.trim() && (
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-g50 text-g700 border border-g700/30">
+              <i className="ti ti-building-store text-[11px]" />{qVete.trim()}
+            </span>
           )}
+          <button onClick={() => { setQCadete(""); setQVete(""); }}
+            className="ml-1 text-gy500 hover:text-gy800 underline">Limpiar todo</button>
         </div>
       )}
 
       {!filtrados.length && (
         <div className="py-12 text-center text-gy400">
-          {aplCadete.trim() || aplVete.trim() ? "Sin resultados para la búsqueda" : "Sin retiros pendientes de control"}
+          {qCadete.trim() || qVete.trim() ? "Sin resultados para la búsqueda" : "Sin retiros pendientes de control"}
         </div>
       )}
 
