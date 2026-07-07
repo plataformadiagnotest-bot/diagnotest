@@ -48,7 +48,7 @@ export default async function InicioPage() {
     const { data } = await supabase
       .from("pedidos_retiro")
       .select(`
-        id, estado, urgente, detalle, created_at, fecha_limite,
+        id, estado, urgente, detalle, materiales, created_at, fecha_limite,
         veterinaria:veterinaria_id(id, nombre, codigo)
       `)
       .eq("personal_asignado_id", personalId)
@@ -62,6 +62,7 @@ export default async function InicioPage() {
         estado: p.estado,
         urgente: p.urgente,
         detalle: p.detalle,
+        materiales: (p.materiales as string[] | null) ?? null,
         created_at: p.created_at,
         fecha_limite: p.fecha_limite,
         veterinaria_id: vet?.id ?? null,
@@ -118,6 +119,7 @@ export interface PedidoMobile {
   estado: string;
   urgente: boolean;
   detalle: string | null;
+  materiales: string[] | null;
   created_at: string;
   fecha_limite: string;
   veterinaria_id: string | null;

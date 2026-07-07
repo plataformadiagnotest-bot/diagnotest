@@ -164,6 +164,7 @@ create table pedidos_retiro (
   estado                estado_pedido not null default 'asignado',
   urgente               boolean not null default false,
   detalle               text,
+  materiales            text[],
   fecha_limite          timestamptz not null default (now() + interval '2 hours'),
   resuelto_en           timestamptz,
   retiro_id             uuid references retiros(id) on delete set null,

@@ -605,13 +605,32 @@ export function MobileHome({ nombre, zonaNombre, personalId, profileId, veterina
                       <div className="font-mono text-[18px] font-bold text-gy900 leading-tight">{p.veterinaria_codigo || "S/C"}</div>
                       <div className="text-[12px] text-gy500 truncate">{p.veterinaria_nombre}</div>
                     </div>
-                    {p.urgente && <span className="text-[9px] font-bold bg-red-500 text-white rounded-full px-2 py-0.5 shrink-0">URGENTE</span>}
+                    <div className="flex items-center gap-1 shrink-0">
+                      {p.materiales && p.materiales.length > 0 && (
+                        <span className="flex items-center gap-1 text-[9px] font-bold bg-g700 text-white rounded-full px-2 py-0.5">
+                          <i className="ti ti-package text-[11px]" /> DEJAR MATERIAL
+                        </span>
+                      )}
+                      {p.urgente && <span className="text-[9px] font-bold bg-red-500 text-white rounded-full px-2 py-0.5">URGENTE</span>}
+                    </div>
                   </div>
                   <div className="flex items-center gap-1.5 text-[12px] font-semibold text-blue-700 mt-1.5">
                     <i className="ti ti-clock-hour-4 text-[14px]" />
                     Horario de retiro: {formatDateTime(p.fecha_limite)}
                   </div>
                   {p.detalle && <div className="text-[11px] text-gy500 mt-0.5">{p.detalle}</div>}
+                  {p.materiales && p.materiales.length > 0 && (
+                    <div className="mt-2 rounded-[8px] border border-g200 bg-g50 px-2.5 py-2">
+                      <div className="flex items-center gap-1.5 text-[11px] font-semibold text-g700 mb-1">
+                        <i className="ti ti-package text-[14px]" /> Materiales para dejar en la vete
+                      </div>
+                      <div className="flex flex-wrap gap-1.5">
+                        {p.materiales.map((m) => (
+                          <span key={m} className="text-[11px] bg-white border border-g300 text-g700 rounded-full px-2 py-0.5">{m}</span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                   <button onClick={() => abrirPedido(p)}
                     className="w-full mt-2.5 flex items-center justify-center gap-1.5 py-2.5 bg-blue-500 hover:bg-blue-600 text-white text-[13px] font-semibold rounded-[10px] transition-colors">
                     <i className="ti ti-circle-plus text-[16px]" /> Registrar este retiro

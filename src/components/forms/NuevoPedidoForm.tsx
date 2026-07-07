@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "@/components/ui/ToastNotification";
+import { MATERIALES_PEDIDO } from "@/lib/pedidos/materiales";
 
 interface VetOption { id: string; codigo: string; nombre: string }
 interface PersonalOption { id: string; nombre: string }
@@ -37,7 +38,16 @@ export function NuevoPedidoForm({ creadoPorId }: Props) {
     fecha_limite: defaultFechaLimite(),
     detalle: "",
     urgente: false,
+    dejarMateriales: false,
+    materiales: [] as string[],
   });
+
+  function toggleMaterial(m: string) {
+    setForm((f) => ({
+      ...f,
+      materiales: f.materiales.includes(m) ? f.materiales.filter((x) => x !== m) : [...f.materiales, m],
+    }));
+  }
 
   useEffect(() => {
     async function load() {
@@ -74,7 +84,11 @@ export function NuevoPedidoForm({ creadoPorId }: Props) {
     e.preventDefault();
     if (!form.veterinaria_id) { toast("error", "Seleccioná una veterinaria de la lista"); return; }
     if (!form.personal_asignado_id) { toast("error", "Asigná el pedido a un personal de logística"); return; }
+    if (form.dejarMateriales && form.materiales.length === 0) { toast("error", "Marcá al menos un material a dejar"); return; }
     setLoading(true);
+
+    // Solo se guardan materiales si se activó "Dejar materiales" y hay alguno.
+    const materiales = form.dejarMateriales && form.materiales.length ? form.materiales : null;
 
     const { error } = await supabase.from("pedidos_retiro").insert({
       veterinaria_id: form.veterinaria_id,
@@ -83,6 +97,7 @@ export function NuevoPedidoForm({ creadoPorId }: Props) {
       estado: "asignado",
       urgente: form.urgente,
       detalle: form.detalle.trim() || null,
+      materiales,
       fecha_limite: new Date(form.fecha_limite).toISOString(),
     });
 
@@ -200,15 +215,47 @@ export function NuevoPedidoForm({ creadoPorId }: Props) {
         <div className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide text-g700 mb-3 pb-2 border-b border-g100">
           <i className="ti ti-flag" /> Marcadores
         </div>
-        <button type="button"
-          onClick={() => set("urgente", !form.urgente)}
-          className={`flex items-center gap-2.5 px-3.5 py-2.5 rounded-[6px] border-2 transition-all ${form.urgente ? "border-red-400 bg-red-50" : "border-dashed border-gy300"}`}
-        >
-          <div className={`w-2.5 h-2.5 rounded-full transition-colors ${form.urgente ? "bg-red-500" : "bg-gy300"}`} />
-          <span className={`text-[12px] font-semibold ${form.urgente ? "text-red-600" : "text-gy600"}`}>
-            {form.urgente ? "Urgente: SÍ" : "Urgente: No"}
-          </span>
-        </button>
+        <div className="flex flex-col gap-3">
+          <button type="button"
+            onClick={() => set("urgente", !form.urgente)}
+            className={`flex items-center gap-2.5 px-3.5 py-2.5 rounded-[6px] border-2 transition-all ${form.urgente ? "border-red-400 bg-red-50" : "border-dashed border-gy300"}`}
+          >
+            <div className={`w-2.5 h-2.5 rounded-full transition-colors ${form.urgente ? "bg-red-500" : "bg-gy300"}`} />
+            <span className={`text-[12px] font-semibold ${form.urgente ? "text-red-600" : "text-gy600"}`}>
+              {form.urgente ? "Urgente: SÍ" : "Urgente: No"}
+            </span>
+          </button>
+
+          {/* Dejar materiales: al activarlo aparece el listado de materiales. */}
+          <button type="button"
+            onClick={() => set("dejarMateriales", !form.dejarMateriales)}
+            className={`flex items-center gap-2.5 px-3.5 py-2.5 rounded-[6px] border-2 transition-all ${form.dejarMateriales ? "border-g500 bg-g50" : "border-dashed border-gy300"}`}
+          >
+            <i className={`ti ti-package text-[16px] ${form.dejarMateriales ? "text-g700" : "text-gy400"}`} />
+            <span className={`text-[12px] font-semibold ${form.dejarMateriales ? "text-g700" : "text-gy600"}`}>
+              {form.dejarMateriales ? "Dejar materiales: SÍ" : "Dejar materiales: No"}
+            </span>
+          </button>
+
+          {form.dejarMateriales && (
+            <div className="rounded-[8px] border-2 border-g100 bg-g50/40 p-3">
+              <div className="text-[10px] font-semibold uppercase tracking-wide text-gy500 mb-2">
+                ¿Qué materiales dejar?
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {MATERIALES_PEDIDO.map((m) => {
+                  const on = form.materiales.includes(m);
+                  return (
+                    <button key={m} type="button" onClick={() => toggleMaterial(m)}
+                      className={`px-3 py-1.5 rounded-full text-[12px] border transition-colors ${on ? "bg-g700 text-white border-g700" : "bg-white text-gy600 border-gy200 hover:border-g400 hover:text-g700"}`}>
+                      {on && <i className="ti ti-check text-[12px] mr-1" />}{m}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </div>
       </section>
 
       <button type="submit" disabled={loading}
