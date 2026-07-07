@@ -381,7 +381,7 @@ export function ControlCard({ control, tipo, etapa = "obs" }: Props) {
             <div className="text-[9px] uppercase tracking-wide text-gy400 font-semibold mb-0.5">Cadete</div>
             <div className="text-[13px] font-semibold text-gy900">{personal?.nombre ?? "—"}</div>
           </div>
-          {retiro?.comentarios && (
+          {tipo !== "cob" && retiro?.comentarios && (
             <div className="flex-1">
               <div className="text-[9px] uppercase tracking-wide text-gy400 font-semibold mb-0.5">Comentarios</div>
               <div className="text-[12px] text-gy600">{retiro.comentarios}</div>
@@ -504,6 +504,18 @@ export function ControlCard({ control, tipo, etapa = "obs" }: Props) {
                 )}
               </div>
             )}
+            {/* Observaciones de logística: el comentario que cargó el cadete al
+                registrar el retiro. Cobranzas también necesita verlo. */}
+            <div className="mb-3 rounded-[8px] border border-blue-200 bg-blue-50 px-3 py-2.5">
+              <div className="flex items-center gap-1.5 mb-1">
+                <i className="ti ti-notes text-[13px] text-blue-600" />
+                <span className="text-[10px] font-semibold uppercase tracking-wide text-blue-700">Observaciones de logística</span>
+              </div>
+              {retiro?.comentarios
+                ? <div className="text-[12px] text-gy700">{retiro.comentarios}</div>
+                : <div className="text-[12px] text-gy400 italic">Sin observaciones de logística</div>}
+            </div>
+
             <div className="mb-3 rounded-[8px] border border-gy200 bg-gy50 px-3 py-2.5">
               <div className="flex items-center gap-1.5 mb-1.5">
                 <i className="ti ti-clipboard-check text-[13px] text-g600" />
