@@ -7,6 +7,10 @@ import { ControladoAcciones } from "@/components/preanalitica/ControladoAcciones
 import { formatDateTime, todayISO, baDayStartUTC, baDayEndUTC } from "@/lib/utils/dates";
 import { esCanceladoOAnulado, etiquetaRojo } from "@/lib/utils/preanalitica";
 
+// Lectura fresca: al cancelar/comentar se hace router.refresh(); sin esto la
+// lista podría quedar cacheada.
+export const dynamic = "force-dynamic";
+
 export default async function PreanaliticaControladosPage({
   searchParams,
 }: {

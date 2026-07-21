@@ -3,6 +3,11 @@ import { Topbar } from "@/components/layout/Topbar";
 import { PreanaliticaBandeja } from "@/components/preanalitica/PreanaliticaBandeja";
 import { MuestrasPorCadete } from "@/components/caja/MuestrasPorCadete";
 
+// Lectura fresca en cada render: al controlar una tarjeta se hace router.refresh()
+// y, sin esto, Next puede devolver la consulta cacheada/vacía y las solapas de
+// Control 1/2 aparecen en 0 hasta recargar a mano.
+export const dynamic = "force-dynamic";
+
 export default async function PreanaliticaPage() {
   const supabase = await createClient();
 

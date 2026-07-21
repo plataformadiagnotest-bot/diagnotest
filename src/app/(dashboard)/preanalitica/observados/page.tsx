@@ -2,6 +2,10 @@ import { createClient } from "@/lib/supabase/server";
 import { Topbar } from "@/components/layout/Topbar";
 import { ObservadosList } from "@/components/preanalitica/ObservadosList";
 
+// Lectura fresca: al resolver un observado se hace router.refresh() y sin esto
+// Next podría devolver la lista cacheada/desactualizada.
+export const dynamic = "force-dynamic";
+
 export default async function PreanaliticaObservadosPage() {
   const supabase = await createClient();
 
