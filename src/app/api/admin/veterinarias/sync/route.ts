@@ -15,15 +15,27 @@ async function requireSuperAdmin() {
   return { user };
 }
 
-// Convierte un link de Google Sheets a su URL de exportación CSV.
-function toCsvUrl(input: string): string | null {
+// Convierte un link de Google Sheets a una lista de URLs de exportación CSV
+// para probar en orden. Clave: NO forzar gid=0 (Google devuelve 400 si ese tab
+// no existe). Sin gid en el link, se pide la primera hoja por defecto.
+function sheetCsvCandidates(input: string): string[] | null {
   const url = input.trim();
-  if (/output=csv|format=csv/i.test(url)) return url;
+  // Ya es un link CSV directo (export o publicado): se usa tal cual.
+  if (/output=csv|format=csv|tqx=out:csv/i.test(url)) return [url];
   const idMatch = url.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
   if (!idMatch) return null;
+  const base = `https://docs.google.com/spreadsheets/d/${idMatch[1]}`;
   const gidMatch = url.match(/[#&?]gid=(\d+)/);
-  const gid = gidMatch ? gidMatch[1] : "0";
-  return `https://docs.google.com/spreadsheets/d/${idMatch[1]}/export?format=csv&gid=${gid}`;
+  const gid = gidMatch ? gidMatch[1] : null;
+
+  const cands: string[] = [];
+  // Si el link trae gid, se intenta esa hoja puntual primero.
+  if (gid) cands.push(`${base}/export?format=csv&gid=${gid}`);
+  // Primera hoja por defecto (cubre el caso del gid real distinto de 0).
+  cands.push(`${base}/export?format=csv`);
+  // Último recurso: la API de visualización (otra ruta de exportación CSV).
+  cands.push(`${base}/gviz/tq?tqx=out:csv${gid ? `&gid=${gid}` : ""}`);
+  return cands;
 }
 
 // Parser CSV mínimo que respeta comillas y comas internas.
@@ -62,42 +74,47 @@ export async function POST(req: Request) {
   let body: { sheetUrl?: string };
   try { body = await req.json(); } catch { return NextResponse.json({ error: "Body inválido" }, { status: 400 }); }
 
-  const csvUrl = toCsvUrl(body.sheetUrl ?? "");
-  if (!csvUrl) return NextResponse.json({ error: "El link no parece un Google Sheet válido" }, { status: 400 });
+  const candidatos = sheetCsvCandidates(body.sheetUrl ?? "");
+  if (!candidatos) return NextResponse.json({ error: "El link no parece un Google Sheet válido" }, { status: 400 });
 
-  // 1) Descargar el CSV
-  let csvText: string;
-  try {
-    const resp = await fetch(csvUrl, {
-      redirect: "follow",
-      cache: "no-store",
-      headers: {
-        // Google puede rechazar o devolver HTML si no hay un User-Agent de navegador.
-        "User-Agent": "Mozilla/5.0 (compatible; DiagnotestBot/1.0)",
-        "Accept": "text/csv,text/plain,*/*",
-      },
-    });
+  // 1) Descargar el CSV probando las rutas de exportación en orden. Si una da
+  //    404/400 (por ej. gid inexistente) se prueba la siguiente.
+  let csvText: string | null = null;
+  let ultimoStatus = 0;
+  for (const csvUrl of candidatos) {
+    try {
+      const resp = await fetch(csvUrl, {
+        redirect: "follow",
+        cache: "no-store",
+        headers: {
+          // Google puede rechazar o devolver HTML si no hay un User-Agent de navegador.
+          "User-Agent": "Mozilla/5.0 (compatible; DiagnotestBot/1.0)",
+          "Accept": "text/csv,text/plain,*/*",
+        },
+      });
 
-    // Si terminó en una pantalla de login/permisos de Google → el Sheet no es público.
-    if (/accounts\.google\.com|ServiceLogin/i.test(resp.url)) {
-      return NextResponse.json({ error: "El Sheet no es público. Compartilo como 'Cualquiera con el enlace puede ver' e intentá de nuevo." }, { status: 400 });
-    }
-    if (!resp.ok) {
-      const detalle = resp.status === 404
-        ? "El Sheet no existe o el link es incorrecto (404)."
-        : resp.status === 401 || resp.status === 403
-          ? "Sin permisos para acceder al Sheet. Compartilo como 'Cualquiera con el enlace puede ver'."
-          : `Google respondió ${resp.status} al descargar el Sheet.`;
-      return NextResponse.json({ error: detalle }, { status: 400 });
-    }
+      // Si terminó en una pantalla de login/permisos de Google → el Sheet no es público.
+      if (/accounts\.google\.com|ServiceLogin/i.test(resp.url)) {
+        return NextResponse.json({ error: "El Sheet no es público. Compartilo como 'Cualquiera con el enlace puede ver' e intentá de nuevo." }, { status: 400 });
+      }
+      if (!resp.ok) { ultimoStatus = resp.status; continue; }
 
-    csvText = await resp.text();
-    if (/<html|<!doctype html/i.test(csvText)) {
-      return NextResponse.json({ error: "El Sheet devolvió una página web en vez de datos. Verificá que esté como 'Cualquiera con el enlace puede ver' y que el link apunte a la hoja correcta." }, { status: 400 });
+      const text = await resp.text();
+      if (/<html|<!doctype html/i.test(text)) { ultimoStatus = 200; continue; }
+      csvText = text;
+      break;
+    } catch {
+      ultimoStatus = -1;
     }
-  } catch (e) {
-    const msg = e instanceof Error ? e.message : "desconocido";
-    return NextResponse.json({ error: `No se pudo descargar el Sheet (${msg}). Revisá el link y los permisos.` }, { status: 400 });
+  }
+
+  if (csvText == null) {
+    const detalle = ultimoStatus === 404
+      ? "El Sheet no existe o el link es incorrecto (404)."
+      : ultimoStatus === 401 || ultimoStatus === 403
+        ? "Sin permisos para acceder al Sheet. Compartilo como 'Cualquiera con el enlace puede ver'."
+        : "No se pudo descargar el Sheet. Verificá que esté como 'Cualquiera con el enlace puede ver' y que el link apunte a la hoja correcta.";
+    return NextResponse.json({ error: detalle }, { status: 400 });
   }
 
   // 2) Parsear y mapear columnas por encabezado

@@ -18,9 +18,10 @@ function toCsvUrl(input: string): string | null {
   if (/output=csv|format=csv/i.test(url)) return url; // ya es CSV
   const idMatch = url.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
   if (!idMatch) return null;
+  // No forzar gid=0: Google devuelve 400 si ese tab no existe. Sin gid en el
+  // link, se exporta la primera hoja por defecto.
   const gidMatch = url.match(/[#&?]gid=(\d+)/);
-  const gid = gidMatch ? gidMatch[1] : "0";
-  return `https://docs.google.com/spreadsheets/d/${idMatch[1]}/export?format=csv&gid=${gid}`;
+  return `https://docs.google.com/spreadsheets/d/${idMatch[1]}/export?format=csv${gidMatch ? `&gid=${gidMatch[1]}` : ""}`;
 }
 
 // Parser CSV mínimo que respeta comillas y comas internas.
