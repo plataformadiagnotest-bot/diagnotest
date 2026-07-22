@@ -83,6 +83,7 @@ create table veterinarias (
   zona_id               uuid references zonas(id) on delete set null,
   condicion_facturacion text,
   activa                boolean not null default true,
+  es_fija               boolean not null default false,
   observaciones         text
 );
 
@@ -160,9 +161,10 @@ create table pedidos_retiro (
   id                    uuid primary key default uuid_generate_v4(),
   veterinaria_id        uuid not null references veterinarias(id),
   personal_asignado_id  uuid not null references personal(id),
-  creado_por_id         uuid not null references profiles(id),
+  creado_por_id         uuid references profiles(id),
   estado                estado_pedido not null default 'asignado',
   urgente               boolean not null default false,
+  es_automatico         boolean not null default false,
   detalle               text,
   materiales            text[],
   fecha_limite          timestamptz not null default (now() + interval '2 hours'),

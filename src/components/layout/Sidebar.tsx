@@ -31,6 +31,7 @@ function getNavItems(rol: string): NavItem[] {
         { href: "/pedidos", label: "Pedidos de retiro", icon: "ti-map-pin", badgeClass: "blue" },
         { href: "/retiros", label: "Todos los retiros", icon: "ti-table" },
         { href: "/retiros/por-personal", label: "Por personal", icon: "ti-user" },
+        { href: "/admin/veterinarias", label: "Veterinarias", icon: "ti-building-hospital" },
         { href: "/retiros/duplicados", label: "Duplicados", icon: "ti-copy", badgeClass: "amber" },
         { href: "/gastos/autorizar", label: "Gastos a autorizar", icon: "ti-cash", badgeClass: "purple" },
       ];
