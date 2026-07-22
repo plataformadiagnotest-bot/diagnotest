@@ -3,7 +3,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { Topbar } from "@/components/layout/Topbar";
 import { StatCard } from "@/components/ui/StatCard";
 import { PillStatus } from "@/components/ui/PillStatus";
-import { formatDateTime, formatDate } from "@/lib/utils/dates";
+import { formatDateTime } from "@/lib/utils/dates";
 import { PedidoActions } from "@/components/forms/PedidoActions";
 import { retiroResuelvePedido } from "@/lib/pedidos/match";
 import Link from "next/link";
@@ -19,6 +19,18 @@ export default async function PedidosPage() {
 
   const { data: profile } = await supabase.from("profiles").select("rol").eq("id", user!.id).single();
   const isPersonal = profile?.rol === "personal_logistica";
+  const esStaff = ["jefe_logistica", "dueno", "super_admin"].includes(profile?.rol ?? "");
+
+  // Veterinarias fijas que hoy no generan pedido (sin zona / sin cadete / 2+
+  // cadetes). Aviso para que logística deje la zona resuelta. Solo para staff.
+  let fijasSinResolver = 0;
+  if (esStaff) {
+    const { count } = await supabase
+      .from("veterinarias_fijas_estado")
+      .select("id", { count: "exact", head: true })
+      .neq("motivo", "ok");
+    fijasSinResolver = count ?? 0;
+  }
 
   let query = supabase
     .from("pedidos_retiro")
@@ -89,6 +101,17 @@ export default async function PedidosPage() {
         ) : undefined}
       />
       <div className="p-6 space-y-4">
+        {fijasSinResolver > 0 && (
+          <Link href="/admin/veterinarias"
+            className="flex items-start gap-3 bg-amber-bg border border-amber/40 rounded-[10px] px-4 py-3 text-[12px] text-amber-text hover:bg-amber-bg/70">
+            <i className="ti ti-alert-triangle text-[16px] mt-0.5 shrink-0" />
+            <div className="flex-1">
+              <strong>{fijasSinResolver} veterinaria{fijasSinResolver !== 1 ? "s" : ""} fija{fijasSinResolver !== 1 ? "s" : ""} sin resolver</strong> — hoy no generan pedido automático (falta zona o cadete en la zona).
+            </div>
+            <span className="underline shrink-0">Ver detalle →</span>
+          </Link>
+        )}
+
         {vencidos.length > 0 && (
           <div className="flex items-start gap-3 bg-blue-50 border border-blue-200 rounded-[10px] px-4 py-3 text-[12px] text-blue-800">
             <i className="ti ti-map-pin text-[16px] mt-0.5 shrink-0" />
