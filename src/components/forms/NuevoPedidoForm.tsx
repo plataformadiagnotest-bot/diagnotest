@@ -72,8 +72,24 @@ export function NuevoPedidoForm({ creadoPorId }: Props) {
         .eq("activo", true)
         .order("nombre");
       setPersonal(pers ?? []);
+
+      // Precarga el "Asignar a" con el último cadete que asignó este jefe, para
+      // no reingresarlo cada vez. Solo si sigue activo y si el usuario todavía no
+      // eligió otro (por si resuelve después de tipear).
+      const { data: ultimo } = await supabase
+        .from("pedidos_retiro")
+        .select("personal_asignado_id")
+        .eq("creado_por_id", creadoPorId)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      const lastId = ultimo?.personal_asignado_id;
+      if (lastId && (pers ?? []).some((p) => p.id === lastId)) {
+        setForm((f) => (f.personal_asignado_id ? f : { ...f, personal_asignado_id: lastId }));
+      }
     }
     load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   function set(field: string, value: unknown) {
