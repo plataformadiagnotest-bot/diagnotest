@@ -70,6 +70,7 @@ export function ControlCard({ control, tipo, etapa = "obs" }: Props) {
   const [responsable1, setResponsable1] = useState<string | null>(control.responsable_1 ?? null);
   const [responsable2, setResponsable2] = useState<string | null>(control.responsable_2 ?? null);
   const [saving, setSaving] = useState(false);
+  const [savingEdicion, setSavingEdicion] = useState(false);
 
   // En Control 2 las etiquetas del Control 1 quedan bloqueadas (solo lectura);
   // el operador del segundo control puede agregar otras, pero no quitarlas.
@@ -163,6 +164,33 @@ export function ControlCard({ control, tipo, etapa = "obs" }: Props) {
       ? "Pasó a Observados"
       : esC1 ? "Control 1 OK · pasa a Control 2 ✓" : "Controlado ✓";
     toast("success", msg);
+    router.refresh();
+  }
+
+  // Guarda correcciones (etiquetas, detalle, responsable) SIN controlar: el
+  // registro queda pendiente en la misma etapa (no marca OK ni Observado). Sirve
+  // para corregir un dato mal cargado sin sacarlo de la bandeja.
+  async function guardarEdicion() {
+    setSavingEdicion(true);
+    const res = await fetch("/api/preanalitica/validar", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        controlId: control.id,
+        estado: "pendiente",
+        control1: control.control_1 ?? null,
+        control2: control.control_2 ?? null,
+        etiquetas,
+        detalle: detalle || null,
+        detalle2: detalle2 || null,
+        responsable1: responsable1 || null,
+        responsable2: responsable2 || null,
+      }),
+    });
+    const json = await res.json();
+    setSavingEdicion(false);
+    if (!res.ok) { toast("error", json.error ?? "No se pudo guardar"); return; }
+    toast("success", "Cambios guardados ✓");
     router.refresh();
   }
 
@@ -428,12 +456,22 @@ export function ControlCard({ control, tipo, etapa = "obs" }: Props) {
                 <option value="observar">Observar</option>
               </select>
               {/* Guardar inmediatamente debajo del desplegable del control */}
-              <button onClick={guardarEtapa} disabled={saving}
+              <button onClick={guardarEtapa} disabled={saving || savingEdicion}
                 className="mt-2 w-full flex items-center justify-center gap-1.5 px-3 py-1.5 text-[11px] font-medium bg-g700 text-white border border-g700 rounded-[6px] hover:bg-g800 disabled:opacity-50">
                 {saving
                   ? <span className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                   : <i className="ti ti-device-floppy text-[13px]" />}
                 Guardar
+              </button>
+              {/* Guardar correcciones (etiquetas, detalle, muestras) sin controlar:
+                  el registro queda pendiente, no pasa a Observado. */}
+              <button onClick={guardarEdicion} disabled={saving || savingEdicion}
+                title="Guarda las correcciones sin marcar OK/Observar (queda pendiente)"
+                className="mt-1.5 w-full flex items-center justify-center gap-1.5 px-3 py-1.5 text-[11px] font-medium bg-white text-g700 border border-g300 rounded-[6px] hover:bg-g50 disabled:opacity-50">
+                {savingEdicion
+                  ? <span className="w-3 h-3 border-2 border-g300 border-t-g600 rounded-full animate-spin" />
+                  : <i className="ti ti-edit text-[13px]" />}
+                Guardar cambios
               </button>
             </div>
             <div className="flex-1 min-w-[240px]">
