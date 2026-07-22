@@ -13,7 +13,7 @@ export function DuplicadoActions({ retiroId }: Props) {
   const [loading, setLoading] = useState<"confirmar" | "anular" | null>(null);
 
   async function resolver(accion: "confirmar" | "anular") {
-    if (accion === "anular" && !confirm("¿Eliminar definitivamente este retiro por ser un duplicado?\n\nNo se puede deshacer.")) return;
+    if (accion === "anular" && !confirm("¿Anular este retiro por ser un duplicado?\n\nNo suma a las muestras ni a los totales y sale de las bandejas, pero el registro se conserva (no se borra).")) return;
     setLoading(accion);
     const res = await fetch("/api/retiros/duplicados/resolver", {
       method: "POST",
@@ -27,7 +27,7 @@ export function DuplicadoActions({ retiroId }: Props) {
     if (json.yaResuelto) { toast("info", "Otro usuario ya lo resolvió"); window.dispatchEvent(new Event("badges:refresh")); router.refresh(); return; }
 
     toast(accion === "confirmar" ? "success" : "warning",
-      accion === "confirmar" ? "Retiro confirmado como válido ✓" : "Duplicado eliminado");
+      accion === "confirmar" ? "Retiro confirmado como válido ✓" : "Duplicado anulado ✓");
     window.dispatchEvent(new Event("badges:refresh"));
     router.refresh();
   }

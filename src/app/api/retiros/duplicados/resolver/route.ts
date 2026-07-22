@@ -31,7 +31,7 @@ export async function POST(req: Request) {
   // si otro perfil ya lo resolvió, esta llamada no afecta nada.
   const { data: retiro } = await admin
     .from("retiros")
-    .select("id, estado, comprobante_url")
+    .select("id, estado, veterinaria_texto_original, codigo_original")
     .eq("id", id)
     .single();
 
@@ -47,19 +47,24 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: true });
   }
 
-  // anular = es un duplicado real → se elimina definitivamente (cascada a sus
-  // controles) para que desaparezca por completo, no solo marcarlo anulado.
-  if (retiro.comprobante_url) {
-    const marker = "/comprobantes/";
-    const idx = (retiro.comprobante_url as string).indexOf(marker);
-    if (idx !== -1) {
-      const path = (retiro.comprobante_url as string).slice(idx + marker.length);
-      await admin.storage.from("comprobantes").remove([path]).catch(() => {});
-    }
-  }
-
-  const { error } = await admin.from("retiros").delete().eq("id", id);
+  // anular = es un duplicado real → se ANULA (no se borra): queda anulado=true,
+  // así no suma a muestras ni a los totales y sale de las bandejas, pero el
+  // registro se conserva para auditoría. Logística/preanalítica no borran datos.
+  const { error } = await admin
+    .from("retiros")
+    .update({ anulado: true, estado: "anulado" })
+    .eq("id", id);
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+
+  await admin.from("auditoria").insert({
+    entidad: "retiro",
+    entidad_id: id,
+    accion: "Anulación",
+    campo_modificado: "estado",
+    valor_anterior: "Duplicado sospechoso",
+    valor_nuevo: `Anulado (duplicado) · ${retiro.codigo_original ?? ""} ${retiro.veterinaria_texto_original ?? ""}`.trim(),
+    usuario_id: user.id,
+  });
 
   return NextResponse.json({ ok: true });
 }
