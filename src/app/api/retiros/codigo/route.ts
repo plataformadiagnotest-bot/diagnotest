@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { revalidarPreanalitica } from "@/lib/preanalitica/revalidar";
 
 // Roles que pueden corregir el código de veterinaria de un retiro.
 const ROLES_PERMITIDOS = ["preanalitica", "cobranzas", "super_admin"];
@@ -52,6 +53,7 @@ export async function POST(req: Request) {
   const { error } = await admin.from("retiros").update(update).eq("id", retiroId);
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
 
+  revalidarPreanalitica();
   return NextResponse.json({
     ok: true,
     matched: !!veterinaria,

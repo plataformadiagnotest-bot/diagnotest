@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { revalidarPreanalitica } from "@/lib/preanalitica/revalidar";
 
 // Acciones sobre un registro ya controlado: cancelar / reactivar / comentar.
 // Disponible para preanalítica, super_admin y dirección (dueño).
@@ -90,5 +91,6 @@ export async function POST(req: Request) {
     usuario_id: guard.user.id,
   });
 
+  revalidarPreanalitica();
   return NextResponse.json({ ok: true });
 }

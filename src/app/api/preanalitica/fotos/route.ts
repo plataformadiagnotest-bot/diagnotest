@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { revalidarPreanalitica } from "@/lib/preanalitica/revalidar";
 
 // Persiste el listado de fotos adjuntas de un control de preanalítica.
 // La subida al storage la hace el cliente; acá solo guardamos las URLs.
@@ -35,5 +36,6 @@ export async function POST(req: Request) {
     .eq("id", controlId);
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
 
+  revalidarPreanalitica();
   return NextResponse.json({ ok: true, fotos });
 }

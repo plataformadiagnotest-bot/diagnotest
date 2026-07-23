@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { revalidarPreanalitica } from "@/lib/preanalitica/revalidar";
 
 // Roles que pueden corregir la cantidad de muestras de un retiro.
 const ROLES_PERMITIDOS = ["preanalitica", "super_admin"];
@@ -59,5 +60,6 @@ export async function POST(req: Request) {
   });
   if (audErr) return NextResponse.json({ error: audErr.message }, { status: 400 });
 
+  revalidarPreanalitica();
   return NextResponse.json({ ok: true });
 }
