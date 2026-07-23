@@ -17,9 +17,7 @@ export default async function PreanaliticaPage() {
   // !inner + filtros sobre el retiro: la bandeja no muestra controles de
   // retiros anulados ni de duplicados sospechosos (esos van a su propia
   // pantalla de revisión, no al control de preanalítica).
-  const { data: controles } = await supabase
-    .from("control_preanalitica")
-    .select(`
+  const SELECT = `
       *,
       retiro:retiro_id!inner(
         id, cantidad_muestras, comentarios, urgente, fecha_operativa, timestamp_carga,
@@ -27,11 +25,31 @@ export default async function PreanaliticaPage() {
         personal:personal_id(nombre),
         veterinaria:veterinaria_id(codigo, nombre)
       )
-    `)
+    `;
+  const lista = () => supabase
+    .from("control_preanalitica").select(SELECT)
     .in("estado", ["pendiente", "observado"])
     .eq("retiro.anulado", false)
     .neq("retiro.estado", "duplicado_sospechoso")
     .order("created_at", { ascending: true });
+  const conteo = () => supabase
+    .from("control_preanalitica")
+    .select("id, retiro:retiro_id!inner(anulado, estado)", { count: "exact", head: true })
+    .in("estado", ["pendiente", "observado"])
+    .eq("retiro.anulado", false)
+    .neq("retiro.estado", "duplicado_sospechoso");
+
+  // Robustez: bajo carga la consulta puede fallar o volver corta y, si mostramos
+  // eso como "0 pendientes", preanalítica cree que terminó. Reintentamos y
+  // cruzamos con un conteo liviano; solo aceptamos el resultado si no hubo error
+  // y la cantidad traída coincide con el conteo (o el conteo no está disponible).
+  let controles: Record<string, unknown>[] = [];
+  for (let intento = 0; intento < 3; intento++) {
+    const [{ data, error }, { count }] = await Promise.all([lista(), conteo()]);
+    controles = (data ?? []) as Record<string, unknown>[];
+    if (!error && (count == null || controles.length >= count)) break;
+    if (intento < 2) await new Promise((r) => setTimeout(r, 200));
+  }
 
   // Responsable activo por etapa (para precargar la barra de "quién controla"
   // aunque la bandeja esté vacía). Defensivo por si la tabla aún no existe.
