@@ -464,15 +464,18 @@ export function ControlCard({ control, tipo, etapa = "obs" }: Props) {
                 Guardar
               </button>
               {/* Guardar correcciones (etiquetas, detalle, muestras) sin controlar:
-                  el registro queda pendiente, no pasa a Observado. */}
-              <button onClick={guardarEdicion} disabled={saving || savingEdicion}
-                title="Guarda las correcciones sin marcar OK/Observar (queda pendiente)"
-                className="mt-1.5 w-full flex items-center justify-center gap-1.5 px-3 py-1.5 text-[11px] font-medium bg-white text-g700 border border-g300 rounded-[6px] hover:bg-g50 disabled:opacity-50">
-                {savingEdicion
-                  ? <span className="w-3 h-3 border-2 border-g300 border-t-g600 rounded-full animate-spin" />
-                  : <i className="ti ti-edit text-[13px]" />}
-                Guardar cambios
-              </button>
+                  el registro queda pendiente, no pasa a Observado. Solo en
+                  Control 2: en Control 1 no tiene sentido (recién arranca). */}
+              {etapa === "c2" && (
+                <button onClick={guardarEdicion} disabled={saving || savingEdicion}
+                  title="Guarda las correcciones sin marcar OK/Observar (queda pendiente)"
+                  className="mt-1.5 w-full flex items-center justify-center gap-1.5 px-3 py-1.5 text-[11px] font-medium bg-white text-g700 border border-g300 rounded-[6px] hover:bg-g50 disabled:opacity-50">
+                  {savingEdicion
+                    ? <span className="w-3 h-3 border-2 border-g300 border-t-g600 rounded-full animate-spin" />
+                    : <i className="ti ti-edit text-[13px]" />}
+                  Guardar cambios
+                </button>
+              )}
             </div>
             <div className="flex-1 min-w-[240px]">
               <ResponsableSelector
