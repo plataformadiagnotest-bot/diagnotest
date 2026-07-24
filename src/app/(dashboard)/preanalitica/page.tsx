@@ -1,15 +1,30 @@
+import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { Topbar } from "@/components/layout/Topbar";
 import { PreanaliticaBandeja } from "@/components/preanalitica/PreanaliticaBandeja";
 import { MuestrasPorCadete } from "@/components/caja/MuestrasPorCadete";
+import { landingPathForRole } from "@/lib/utils/roles";
 
 // Caché corta (10s) en vez de reconsultar en cada refresh: baja la carga sobre
 // la base (que amplificaba el "0" bajo presión) manteniendo datos casi frescos.
 // Cada acción de control revalida al instante vía revalidarPreanalitica().
 export const revalidate = 10;
 
+const ROLES_BANDEJA = ["preanalitica", "dueno", "super_admin"];
+
 export default async function PreanaliticaPage() {
-  const supabase = await createClient();
+  // Auth + rol con el cliente de sesión (RLS). Solo para el guard de acceso.
+  const auth = await createClient();
+  const { data: { user } } = await auth.auth.getUser();
+  if (!user) redirect("/login");
+  const { data: perfil } = await auth.from("profiles").select("rol").eq("id", user.id).single();
+  if (!perfil || !ROLES_BANDEJA.includes(perfil.rol)) redirect(landingPathForRole(perfil?.rol));
+
+  // La bandeja se LEE con el cliente admin (service role): no depende de la
+  // sesión ni de RLS, que bajo carga/refresco podían devolver 0 filas sin error
+  // y hacían aparecer los controles en 0 hasta recargar a mano.
+  const supabase = createAdminClient();
 
   // Todo lo pendiente/observado, sin filtrar por fecha: lo que quedó sin
   // controlar de días anteriores tiene que seguir viéndose. La bandeja lo

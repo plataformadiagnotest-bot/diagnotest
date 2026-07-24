@@ -1,12 +1,24 @@
+import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { Topbar } from "@/components/layout/Topbar";
 import { ObservadosList } from "@/components/preanalitica/ObservadosList";
+import { landingPathForRole } from "@/lib/utils/roles";
 
 // Caché corta (10s); cada acción revalida al instante vía revalidarPreanalitica().
 export const revalidate = 10;
 
+const ROLES_BANDEJA = ["preanalitica", "dueno", "super_admin"];
+
 export default async function PreanaliticaObservadosPage() {
-  const supabase = await createClient();
+  const auth = await createClient();
+  const { data: { user } } = await auth.auth.getUser();
+  if (!user) redirect("/login");
+  const { data: perfil } = await auth.from("profiles").select("rol").eq("id", user.id).single();
+  if (!perfil || !ROLES_BANDEJA.includes(perfil.rol)) redirect(landingPathForRole(perfil?.rol));
+
+  // Lectura con admin (service role): no depende de la sesión/RLS (evita el "0").
+  const supabase = createAdminClient();
 
   // Mismos campos que la bandeja para que la tarjeta sea totalmente editable:
   // se puede ajustar controles, etiquetas, detalle, fotos y muestras, y luego
