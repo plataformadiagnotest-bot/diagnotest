@@ -3,6 +3,12 @@ import withPWA from "next-pwa";
 /** @type {import('next').NextConfig} */
 const baseConfig = {
   reactStrictMode: true,
+  experimental: {
+    // Sin caché de cliente para páginas dinámicas: al navegar (ej. entrar a la
+    // bandeja) siempre se pide fresco al servidor, como un F5. Evita que se vea
+    // una versión vieja/en 0 de los controles hasta recargar a mano.
+    staleTimes: { dynamic: 0, static: 180 },
+  },
 };
 
 const withPWAConfig = withPWA({
@@ -29,8 +35,11 @@ const withPWAConfig = withPWA({
       handler: "NetworkFirst",
       options: {
         cacheName: "supabase-cache",
-        networkTimeoutSeconds: 10,
-        expiration: { maxEntries: 200, maxAgeSeconds: 86400 },
+        networkTimeoutSeconds: 5,
+        // Caché de respaldo solo para cortes de red: expira a los 60s para no
+        // servir datos viejos (antes eran 24h). El offline del cadete usa
+        // IndexedDB aparte, así que esto no lo afecta.
+        expiration: { maxEntries: 200, maxAgeSeconds: 60 },
       },
     },
     {

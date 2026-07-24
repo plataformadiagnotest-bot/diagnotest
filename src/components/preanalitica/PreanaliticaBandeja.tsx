@@ -155,7 +155,7 @@ export function PreanaliticaBandeja({
   return (
     <div className="space-y-4">
       {/* Solapas por etapa: primero Control 1, después Control 2 */}
-      <div className="flex gap-2">
+      <div className="flex gap-2 items-center">
         {([
           { id: "c1" as Etapa, label: "Control 1", icon: "ti-clipboard-list", count: c1Count },
           { id: "c2" as Etapa, label: "Control 2", icon: "ti-clipboard-check", count: c2Count },
@@ -167,6 +167,11 @@ export function PreanaliticaBandeja({
             <span className={`text-[11px] font-bold rounded-full px-2 py-0.5 ${etapa === t.id ? "bg-white/20 text-white" : "bg-gy100 text-gy600"}`}>{t.count}</span>
           </button>
         ))}
+        {/* Refresco de un toque: trae los pendientes frescos del servidor. */}
+        <button onClick={() => router.refresh()} title="Actualizar la bandeja"
+          className="ml-auto flex items-center gap-1.5 px-3 py-2 rounded-[10px] border border-gy200 bg-white text-gy600 text-[12px] font-medium hover:border-g400 hover:text-g700">
+          <i className="ti ti-refresh text-[15px]" /> Actualizar
+        </button>
       </div>
 
       {/* Responsable global de la etapa: se marca una vez y se aplica a TODA la
